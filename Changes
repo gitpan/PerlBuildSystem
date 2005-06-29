@@ -1,0 +1,510 @@
+Revision history for PBS (Perl Build System).
+All changes by Nadim Khemir (NKH) except when otherwise stated.
+
+0.30
+	FIXED: Windows path error with new language simplified plugin
+	FIXED: -nge test
+	FIXED: Reduced image size in PNW presentation
+	CHANGED: licence
+	CHANGED SimpleRule plugin to be allow more general AddRule replacement
+	CHANGED: completed Language/Simplified to find out that SimpleRule plugin is a better solution
+	ADDED: -display_wizard_info
+	ADDED: our $wizard_location which is set to the wizard path before it is evaluated
+	ADDED: -display_wizard_help and 'our $wizard_location' made available to wizard
+	FIXED: Tests example, use Configs/gcc to draw depender sub in
+		
+
+0.29 Monday Jun 20 08:00 2005
+	ADDED: merged home/work/win32 (by EJ, NKH) versions of test suite
+	TRIED: generate smaller closures in Builders.pm => no change
+	REMOVED: last remains of warp 2 from Builders.pm
+	REMOVED: __REMOVE_DEPENDENCIES_AND_BUILDERS, can be done with RemoveRule
+	REMOVED: __ERROR_IF_DEPENDENCIES, can be done with a depender
+	MOVED: simplified rule definition to user space (finally!)
+	ADDED: RunUniquePluginSub in Plugin.pm
+	ADDED: plugin 'SimplifiedRule' 
+	FIXED: sub nodes type was not tested
+	ADDED: little counter showing how many warp nodes have been verified
+	FIXED: (with little hack) if first run failed at build, warp file was not generated at step 2 forcing a second pbsfile traversal
+	CHANGED: Separated and split BuildNode in smaller subs
+	ADDED: plugins for simplified subpbs and trigger
+	
+
+0.28 Wed June 15 15:00 2005
+	ADDED: WARP1_5 above 1_0 &n 1_1
+	ADDED: verify warp file version and rebuild if mismatch
+	CHANGED: C dependency caching to  avoif deep recursion
+	CHANGED: BuildNode is passed the node pbs_config instead for the package pbs config
+	REMOVED: builder arguments and replaced them with NODE_SUBS
+	CHANGED: use warp 1.5 for dependency file format (wow!)
+	CHANGED; build dependency node tree manually
+	CHANGED: -dct is now --display_check_time
+	CHANGED: check if a sub tree is depended before depending it. Saves a feww thousands calls in obigo, no time effect though
+	ADDED: --display_pbs_time
+	REMOVED: HostedBuilder
+	CHANGED: optimized Warp 1.5 writing with 50% (1 second less for 5000 nodes)
+	REMOVED: Warp 1.1, not used and only adds maintenance
+	REMOVED: Warp 2.0, must be reimplemented to fit warp 1.5
+	CHANGED: Warp run PBS in all cases.
+	ADDED: some documentation to Rules/C and rules/C_depender
+	REMOVED: TIME_STAMP_SYNCHRONIZING
+	ADDED: INTERMEDIATE_WARP_WRITE
+	FIXED: Warp 1.5 rebuild was missing dependencies re link which led to an error while regenerating the warp file from old warp data
+	CHANGED:: --dpt show total times
+	CHANGED: refactored Forked.pm into smaller chunks
+	CHANGED: Forked builders use a single communication channel instead for 3
+	CHANGED: Forked builders follow a protocol to minimize output
+	FIXED: Config variables couldn't contain [0-9]
+	FIXED: __BUILD_SEQUENCE was missing from Warp tree in post pbs
+	FIXED: Warp 1.5 didn't support FORCED nodes (found by Emil)
+	CHANGD: Environment variables can be used as targets and their name can contain figures
+	ADDED: verification of version for warp and C depender generated files
+	CHANGED: diplay progress bar and silent mode is now default
+	REMOVED: --silent_dependency which is default now
+	ADDED: --show_c_depending to show what files are generated
+	CHANGED: builder override are now full rule defintions instead for just a perl sub ref
+	ADDED: rule generator creates a sub to generate shell commands for shell only builders
+	ADDED: show if a builder uses perl subs in node information
+	CHANGED: node information shows which rule really builds a node even if it was selected through a meta rule
+	ADDED: -dpt shows time spend in per sub builders
+	CHANGED warp 1.5 is now 'warp'
+	CHANGED: renamed --dsi to display_search_info
+	ADDED: --dsi display subpbs info
+	CHANGED compact subpbs info is now default
+	FIXED: give enough info when ignoring a builder and in display_progress_bar mode
+	CHANGED: Warp is  now default
+	CHANGED: display progress bar is now default
+	FIXED: error in qr based dependers that didn't match if no dependency was given
+	ADDED: MultiNodeBuilder
+	FIXED: DEBUG_DISPLAY_DEPENDENCY_REGEX is again working as expected
+	FIXED: warp ignored Pbsfile on command line
+	FIXED: Forked.pm didn't handle remaining parralel node builders properly (found by an assert!)
+	FIXED: finally found why we got the dreaded signal 13 in parallel build. if the node was not created
+		computing it's MD5 generated an uncaught exception.
+	TRIED: to get a better timing of the builders when building in parallel by using "times()"
+	CHANGED: Full refactoring of Forked.pm.
+	ADDED: %FILE_TO_BUILD_PATH  %FILE_TO_BUILD_NAME
+	CHANGED: use PBS::ProgressBar.pm
+	ADDED: display number of Pbsfiles used
+	ADDED: -dbi to dispplay what will build the nodes
+	CHANGED: split Generators.pm in 3 modules to prepare for closure removal refactoring
+	ADDED: Native Windows support by Emil Jansson
+	
+0.27
+	ADDED: Plugin module
+	CHANGED: refactored configuration module
+	ADDED: Reserved switches for PBS
+	FIXED: typo in message after Anders 27th whine
+	ADDED: prototype Progress bar and silent build mode through switch --dpb
+	CHANGED: output format for -dsi
+	ADDED: --display_digest_exclusion, --display_different_digest_only
+	FIXED: C depender is now --source_directory aware allowing for binary repository too
+	CHANGED: --tt --tno --tnonh --tnonr are now handled by a plugin
+	REMOVED: --display_dumper_tree, haven't been used since Data::TreeDumper is used
+	CHANGED: Refactored DefaultBuild.pm and move all visualisation in plugins
+	CHANGED: Replaced Pod::POM by Pod::Parser (still problems with Pod::Select)
+	CHANGED: Wrote own pod parser and completely revamped Documentation.pm
+	CHANGED: made PBS blocking when waiting for build process to end.
+	FIXED: nasty deadlock. works now fine with distcc and // build
+	ADDED: -dpb to parallel build
+	CHANGED: Use Data::Compare in config test
+	ADDED: GetPackageConfig displays an error message if mandatory argument is not passed
+	ADDED: Config class (the namespace) can contain command global flags like LOCKED
+	FIXED: Local override for the first config variable was carried on for next configs
+	FIXED: MergeConfig didn't get config from all the config types (flagrantely missing was LOCAL)
+	FIXED: Output module check input for undef
+	FIXED: use TreeDumper to dump in warp signature instead for D::Dumper
+	CHANGED: standard Pbsfile template
+	FIXED: C depender merges dependencies correctely in the tree. Rebuild was already correct.
+	ADDED: PostPbs plugin (PostPbs) . Kept --post_pbs
+	ADDED: Log plugin (CreateLog)
+	ADDED: Plugin wizard
+	ADDED: --kpbb in forked build
+	ADDED: --display_job_running
+	FIXED: Pod parser missed embedded commands that are not "=head"
+	CHANGED: factored md5 tagging of the dependency tree
+	CHANGED: factored GenerateWarpFile (in DefaultBuild) to Warp's implementation
+	FIXED: refactoring of DefaultBuild introduced an error where $build_success was not set when DO_BUILD is not set.
+	FIXED: removed md5 caching
+	FIXED: error in warp tree when trigger nodes exists
+	CHANGED: started simplifying Warp.pm
+	ADDED: Before attempting a build, all the nodes in the build sequence are removed
+	ADDED: inserted roots and main root are displayed in the same graph when using -dwt
+	ADDED: --display_plugin_runs
+	ADDED: prototype: Warp 1.1 mode, should already support triggered trees but no LOCA_NODES (as warp 1.0)
+	REMOVED: Warp 2.0 temporarely as Warp 1.0 doesn't support it anymore
+	FIXED: removing the nodes to build was a very bad idea as we also build C files!!
+	CHANGED: new warp 1.0 is in service (refactored, use triggered nodes instead for build sequence)
+	CHANGED: warpfile is not regenerated if the build fails.
+
+0.26
+	ADDED: DHTM output --tdhtml
+	ADDED: Output is indented by the PBS level during depend. --
+	ADDED: --dpos
+	ADDED: __SELF md5 to digest
+	ADDED: 'VARIABLE' breakpoint type
+	FIXED: merge the comand line definitions before the parent definitions
+	PROTOTYPE_ADDED: LOCAL_NODES, subpbses don't share nodes with their parents
+	CHANGED: format of this file
+	FIXED: forgot to update warp to new digest format
+	ADDED: --post_pbs
+	FIXED: logging after LOCAL_NODES changes
+	CHANGED: log format
+	FIXED: log is done after build step instead for just before. This allows builder to log data.
+	FIXED: Poscript output uses default font and looks correct
+	ADDED: configuration cache to  optimize ExtractConfig
+	MODIFIED: Rules/C caches it's config instead for repeatidly calling GetConfig.
+	MODIFIED: Use Module::Build, adn moved some modules in subdirectories
+	MODIFIED: Use Tie::Hash::Indexed instead for Tie::IxHash, around 5% faster
+	FIXED: Forked build didn't get enough arguments
+	ADDED: aliased gtg_shapshot and gtg_snap_shots
+	MODIFIED: node information output
+	ADDED: --nil
+	FIXED: C dependencies had generation time stamp which generated n erroneous shapshot sequence
+	ADDED: example of how to override AddRule in Language/Simplified.pm
+	FIXED: command line in log was erroneous
+	CHANGED: default directory is now ./out_$user_name
+	ADDED: better rule checking (ex when the user forgets the rule name)
+	ADDED: ExcludeFromDigest check its argument types
+	ADDED: ExcludeFromDigest warns if the exclusion rule name is overridden
+	ADDED: subpbs checks for the PACKAGE name to be defined and not empty
+	FIXED: Generated builder didn't handle error if the command was a sub
+	ADDED: Distributor.pm and --distribute
+	CHANGED: wizard for depender subs
+	ADDED: --nbn to display the full path for a node
+	CHANGED: --dbi to --dbsi as well as the information format
+	FIXED: -j 2 and -warp needed two runs to synch
+	CHANGED: -v to -V and -v to -verbosity
+	ADDED: -distribute defines -j if -j is not defined
+	ADDED: --allow_virtual_to_match_directory
+	CHANGED: builder thread statistic format
+	ADDED: build sequence is passed to distributor
+	CHANGED: Forked build overrides shell only if it not already overridden allowing us to force a shell on a node
+	ADDED: --dpus and display of total dependency time
+	ADDED: post_pbs wizard
+	CHANGED: revert to SequentialBuild if the number of terminal nodes < 2
+	CHANGED: tweeked option parsing to allow mix of options and targets
+	ADDED: Documentation.pm
+	ADDED: verify the value  returned by builders
+	ADDED: AddConditionalConfigTo
+	CHANGED: put some order in the documentation prompt language and use the pager for long output
+	CHANGED: 'undef' is now allowed in the dependencies and will be ignored
+	CHANGED: [path] must be at begining of dependency
+	CHANGED: [basename|name|ext] are allowed even without [path]
+	FIXED: right order for config defined in command line  vs prf vs environment
+	ADDED: AddConfigVariable & AddNode ConfigVariable
+	FIXED: removed some warnings when displaying and testing config variables that are not defined
+	CHANGED: PbsUse takes a list of file to "use"
+	CHANGED: refactored -tt switch code in DefaultBuild.pm, triggered nodes are now displayed in the same dump
+	FIXED: Trigger import dies properly on error
+	CHANGED: refactores Triggers.pm
+
+0.25 Sunday November  02 10:00:00 2003
+	ADDED: --Warp
+	CHANGED: virtual don't trigger any more
+	ADDED: warp mode is used as soon as a depend tree is build
+	FIXED: warp file properly generated if no build is attempted because of debug flags
+	CHANGED: log-dump-warp headers use common code
+
+0.24 Saturday August  30 23:30:00 2003
+	CHANGED: ExportTriggers sub doesn't have to end with /#\s*end\s+ExportTriggers/ anymore
+	ADDED: OVERIDE_PARENT and LOCAL config attributes
+	ADDED: PrintDebug and --cd switch
+	ADDED: --gtg_html --gtg_html_frame
+	CHANGED: Data structure for __INSERTED_AT is now a hash
+	ADDED: debug hooks (see PBS::Debug.pm)
+	ADDED: perl debugger support
+	REMOVED:LockConfigMerge
+	CHANGED: most data structure are now hashes
+	ADDED:--dump
+	CHANGED: dependers don't need to encapsulate dependencies in array ref anymore
+	CHANGED: removed most Data::Dumper calls
+	FIXED: call to Data::Dumper changed to TreeDumper when computing conf md5 for graphs
+	ADDED:--gtg_snapshots
+	CHANGED: config is passed to GenerateGraph
+	ADDED: name of the parent package and targets to parent config data
+	REMOVED: (quite a while ago) --create_node_path. It is now default
+	CHANGED: PBS::PackageDependencies to PBS::Digest
+	ADDED: example to generate graph legends
+	CHANGED: digest format so all non dependencies start with '__'
+	REMOVED: rule number when displaying node dependencies through -dd switch
+	ADDED: PBS will try loads a prf file named after the user first. (ex:nadim.prf)
+	ADDED: per node digest entries.
+	ADDED: -tt also shows triggered trees
+	ADDED: Pbsfile.pl can also be called pbsfile.pl or Pbsfile or pbsfile
+	ADDED: first shot at a licence
+	ADDED: --dump dumps an evaluable tree in the same directory (and name) as the log
+	ADDED: tree dump has code to generate graphs
+	ADDED: . and .. are accepted in directory specification
+	CHANGED: variable $inserted_files is now $inserted_nodes
+	ADDED: default colors when -c is used
+	CHANGED: C_Depender, supports depending in reposiories
+	ADDED: PBS::FrontEnd, PBS can now call itself
+	ADDED: PBSFILE_CONTENTS, a PBSfile can be passed as a string to a subpbs instead for reading it from a file
+	ADDED: config variable starting with '%' are now evaluated
+	CHANGED: TARGET_PATH is now %TARGET_PATH
+	CHANGED: shell commands: configuration variables must start with '%'
+	CHANGED: multiple PBS (under the same instance) runs share the same log file
+	ADDED: Data::TreeDumper can now be used when redirecting output to a file
+	ADDED: Rule type 'IMMEDIATE_BUILD', the node is build as soon as  it is depended
+	ADDED: config attribute 'SILENT_OVERRIDE', no warning message is displayed
+	ADDED: Rules/C: object files depend on variable CDEFINES
+	ADDED: new C_Depender and Devel::Depend::Cpp
+	ADDED: -dpu, display which file is 'PbsUse'd
+	ADDED: single command shell builder don't need to be within an array reference
+	CHANGED: Refactored Rules.pm and changed some variable names
+	ADDED: support for remote shell command (Telnet and SSH)
+	ADDED: --gtg_printer, makes use of dashed line and lines to display node relationship
+	TESTED: repositories with project nailara
+	TESTED: variant builds in project Lena
+	REMOVED: --no_triggered_build
+	ADDED: %PBS_REPOSITORIES
+	ADDED: Graph module loading is done when needed only
+	FIXED: RunShellCommands returns 1 on success
+	ADDED: Building a C dependency file triggers the C file
+	ADDED: Override of Pbsfiles is allowed through source directories
+	ADDED: NON_RELOCATABLE_PBSFILE disables a specific subpbs override
+	FIXED: removed warning from D:D in C_Depender
+	CHANGED: output of C_Depender is less verbose and -ddi -sdi
+	CHANGED: Command is output on error only if pbs is in silent mode
+	CHANGED: ImportTriggers takes a list of file names
+	CAHNGED: multiple post_pbs can be given on the command line, each run in its own package
+
+0.23 Saturday June  01 01:30:00 2003
+	ADDED: --bni
+	CHANGED --nh removes the Build() header
+	CHANGED: GetPbsConfig (needs some more testing)
+	CHANGED: Re wrote some of the rule module to accomodate new meta rule format
+	ADDED: --w now seeks automatically for available wizards
+	CHANGED: rewrote C_depender.pm, use (cached) md5 for all dependencies
+	ADDED: --gtg_exclude --gtg_include
+	ADDED: AddSubpbsRule takes trailing setup data
+	ADDED: TARGETS is defined in pbs config
+	ADDED: PATH_REGEX 
+	ADDED: --dpc=s takes an argument
+	ADDED: --dre, display each depender result
+	ADDED: --sco, command run through the PBS::Shell have their output removed unless an error occures
+	ADDED: --ncd, Skip the C dependency step
+	CHANGED: C_depender has a new shorter builder
+	ADDED: --l --ll=s log functions
+	ADDED: --tt=s text tree, -tta
+	CHANGED: display of ancestors now used PBS tree dumper
+	ADDED: Log module
+	CHANGED: -tno is used simulteanously with -tt or -t 
+	ADDED: -tt wraps text
+	CHANGED: data dumping is done once just before building
+	ADDED: --no_subpbs_info
+	ADDED: display number of node in the dependency tree
+	CHANGED: Replaced all Yaml Dumper call with TreeDumper calls
+
+0.22 Thu May  22 11:00:00 2003
+	ADDED: locking mechanist for config
+	ADDED: --ni, Information module and changed Build.pm to use it
+	ADDED: ReplaceRule
+	CHANGED: How parent config and command line switches are handled
+	ADDED: GetConfig
+	CHANGED: each instantiation of a subpbs is run in its own perl package with own config and pbs_config
+	ADDED: PrintUser, PrintWarning2, PrintInfo2
+	CHANGED: --gtg_pbs_config takes more of the configuration into account
+	ADDED: list of dependencies is added to digest
+	FIXED: BuildDependentRegex didn't add './' properly in all cases
+	FIXED: Error in C_Depender
+	ADDED: --dcd
+	ADDED: Shell commands can also be a perl sub, it receives the standard builder arguments, multiple subs are accepted
+	ADDED: digest for c dependency files
+	CHANGED: Link info is displayed if --dd is used only
+	ADDED: AddSubpbsRule
+
+
+0.21 Wedenesday May  15 01:00:00 2003
+	ADDED: SHOW which --bi don't match and a 'Done' message at the end of the build step
+	ADDED: --bi takes a regex
+	ADDED: --gtg_config --gtg_config_edge
+	ADDED: __LOCKED information in config
+	ADDED: Locked configurations are displayed in red in graphs
+	ADDED: relashionship between configs in graph
+	CHANGED: each PBS instance get it's own snapshop of the package config
+	ADDED: --dca, display the config snapshot for the current pbs run.
+	ADDED: -wizard
+	ADDED: Build sequence miners
+	ADDED: --prf --nprf, Pbs response file
+
+
+0.20 Wedenesday May  8 00:00:00 2003
+	ADDED: --no_duplicate_info
+	FIXED: --build_directory /
+	CHANGED: Code handling 'LOCAL' nodes
+	ADDED: --gtg_sd clustering option
+	FIXED: name regex '*/bb' matches '/b' properly
+	ADDED: --gtg_cn
+	FIXED: --gtg_bd and cyclic dependency
+	CHANGED: split PBSConfig in two packages
+	ADDED: switch documentation is now integrated into PBS and accessible through --hs
+	ADDED: --dtin
+	CHANGED: we have our own GraphViz module to to aroung limitation present in the stdandard one
+	ADDED: --gtg_spacing --gtg_rbd
+	ADDED: ImportTriggers(file_name)
+	CHANGED: gtg will generate a partial tree if pbs is given a composite target
+	FIXED: -gtg_cn regex
+	CHANGED: Triggered nodes are inserted before dependency is done
+	CHANGED: Dependency.pm re-written, VIRTUAL, LOCAL and FORCED are not dependencies anymore
+	ADDED: --no_trigger_import_info
+	ADDED: multiple --bi are possible, use --bi '*' for displaying build info for all the nodes
+
+
+0.19 Tuesday April  29 15:00:00 2003
+	ADDED: Triggers and --no_trigger_build
+	ADDED: postscript output for graph
+	ADDED: display of cyclic dependencies in the graph
+	ADDED: display of trigger dependencies in the graph
+	ADDED: Pbsfile name in graph
+	CHANGED: format of sub pbs definitions
+	FIXED : Cyclic.pm re-written
+	CHANGED: --be is now --bre
+	ADDED: AddPostBuildCommand, --dpbc, --dpbcr --dpbcd, --dpbcre, -bpbc
+	ADDED: Display Pbs call depth when using --dds switch
+
+
+0.18 Monday April  28 02:00:00 2003
+	REMOVED: --tree_nodes
+	ADDED: --tree_name_only
+	ADDED: --display_build_sequence_name_only
+	ADDED: some header to PBS generated digests
+	ADDED: --generate_tree_graph --gtg_bd --gtg_p
+
+
+0.17 Tuesday April  22 13:00:00 2003
+	ADDED: --sd takes argument starting with './'
+	FIXED: [B][BO][A][AO] order looks better
+	ADDED: --dd will also display a message when a matching sub pbs is found
+	ADDED: --mandatory_build_drectory
+	FIXED: Better display of the rule origin
+	FIXED: Better display of the virtual or forced attribute of a node
+	ADDED:--create_node_path
+	ADDED: composite target, It is now possible to define (a single) target with 
+		the following syntax dependency_start:node_to_build
+	FIXED: If a dependency is added to a node multiple times, a warning is displayed
+		and no linking is done.
+	ADDED: --display_dependency_regex
+	CHANGED: definition of dependent can now take a path glob: '*/node_name'
+	ADDED: The above also works for sub pbs. this allows us to do the following:
+		AddRule ['test' => 'test1/test', 'test2/test'] ;
+		AddRule {'test1/test' => 'P2.pl' ...} ;
+		AddRule {'test2/test' => 'P3.pl' ...} ;
+	ADDED: --display_dependencies_regex
+	ADDED: warning message when linking to a non depended node
+	ADDED: warning message when localy added node is depended in subpbs
+	ADDED: __DEPENDED_AT attribute
+	REMOVED: PBS:Exceptions
+
+
+0.16 Sunay April  13 00:00:00 2003
+	ADDED: DefautBuild() returns the build sequence if not building
+	FIXED: Mixing relative and full dependencies changed the insertion order
+	FIXED: Multiple pathes to PBS_LIB are now working
+	ADDED: Example showing how to do a patial build and asking PBS to finish the job
+	TRIED: To make Ithreads work faster without success
+	CHANGED: Digest exclusion/forcing now works on a per package basis
+	ADDED: Dependencies triggering a build are displayed if no builder for the node is found
+	ADDED: RegisterUserCheckSub(), the registred sub for each node that has an attribute, node
+		attribute is declared as 'node_name:attribute'
+	FIXED: PbsUse could load a file multiple time, only one loading per package can happend now
+
+
+0.15 Saturday April  05 00:00:00 2003
+	CHANGED: moved command line parsing from pbs to PBSConfig
+	ADDED: BuildOk("message") as syntactic sugar for: sub{return(1, "message") ;} in rules
+	CHANGED: Every packages has its own switches (except colors and other simple stuff)
+	ADDED: Sub pbs definitions can now define switches particularely usefull are
+		BUILD_DIRECTORY and SOURCE_DIRECTORIES
+	ADDED: switch --dpc --dspd
+	ADDED: user can define which rule and config namespaces are used through
+		switch --rule_name_space and --config_namespace
+	FIXED: names spaces are displayed correctly by PBS
+	CHANGES: DefaultBuild uses rule namespace 'User' and config namspace 'User' if none is given
+	CHANGED: FirstAndOnlyOneOnDisk moved from PBS/MetaRules.pm to PBSib/MetaRule/FirstAndOnlyOneOnDisk.pm
+	Changed: [name], in rule dependency list, changes to [basename], [name] = [basename].[ext]
+
+0.14  Monday Mar  24 00:30:00 2003
+	ADDED: POST_DEPENT rule and post depend command: error, remove
+	ADDED: META_RULE
+	FIXED: -o doesn't change the rule name anymore but is stored sperately
+	ADDED: dependers can now override builder and arguments
+	ADDED: File digest
+	FIXED: Can't register 2 rules with the same name
+	ADDED: documentation on the above
+	ADDED: --no_digest
+	ADDED: exclusion/inclusion of node for digest only displayed if --display_digest
+	ADDED: possibility to give a depender sub within an array-dependency
+
+
+0.13  Monday Mar  17 01:30:00 2003
+	ADDED: LockConfigMerge and UnlockConfigMerge with warning display.
+	ADDED: -D switch for definitions on the command line. -D defines are
+		merged even if the Pbsfile has use LockConfigMerge
+	ADDED: $dependency_list and $triggered_dependency_list variables to 
+		simplified shellcommand definitions
+	ADDED: simplified shellcommand definitions are more thoroughly checked
+		for undefined variables and config elements.
+	FIXED: -dct is now working
+	ADDED: simplified shellcommand, can use uppercase config elements without using the %config hash.
+	CHANGED: Build module has slightly changed to allow sequencial and parallel build
+	ADDED: parallel build using, the flawed, ithreads, -j -jdoe
+	
+
+
+0.12  Tuesday Mar  04 23:00:00 2003
+	ADDED: -tn|tree_node
+	ADDED: MergeLock, allows a pbs file to forbid PBS to merge a parent config with it.
+	ADDED: 'main.o': '*.c' displays a warning because of useless '*'.
+	ADDED: IGNORE_LOCAL_RULES in sub PBS rule. local rules are ignored and sub PBS is run.
+	FIXED: Builders now receives the config that was current when the depender was run.
+
+
+0.11  Tuesday Mar  04 00:00:00 2003
+	CHANGED: removed use of Exception::Class
+	FIXED: missing quotemeta in dependent regex
+	ADDED: skeletton file
+	ADDED: user defined colors
+	ADDED: global environement variable PBS_FLAGS
+	ADDED: PBS modules now export common functions
+
+0.10  Sunday Mar  02 19:00:00 2003
+	CHANGED: use YAML::Dump for certain data dump.
+	FIXED: Configuration merging error from packages diffrent from PBS
+	ADDED: switch --drd --dec --nli --no_external_link --dmdr
+
+
+0.09  Wedenesday Feb  26 19:00:00 2003
+	CHANGED: dependency module and sub dependency algorithm
+	REMOVED: rule definition in string (ex '.o:.c')
+	
+
+
+0.08  Tuesday Feb  18 19:00:00 2003
+	ADDED: Cyclic dependency display
+	CHECKED: LOCAL on win32.
+	FIXED: '.c:.h' dependency declaration is now quotemeta'd
+
+
+0.07  Tuesday Feb  18 02:00:00 2003
+	FIXED: dependency build order
+
+
+0.06  Monday Feb  17 17:00:00 2003
+	FIXED: Error in cyclic check and moved code to a more appropriate place.
+	ADDED: keyword LOCAL.
+
+
+0.06  Sat Feb  15 20:57:00 2003
+	ADDED --hu and --hur for user help.
+	FIXED: Error in -sd when given directory started with \
+
+
+0.05  Thu Feb  12 01:24:00 2003
+	ADDED: VIRTUAL and FORCE rule type.
+
+0.01  Thu Feb  6 23:23:06 2003
+	- original version; created by h2xs 1.21 with options
+		-X -n PBS::PBS
+

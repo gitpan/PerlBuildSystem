@@ -1,0 +1,20 @@
+Legend: '#' - done
+
+# Add function to create snapshot of test.
+# How do we test that PBS_LIB_PATH... are properly set?
+
+Show where output for failed tests starts and stops.
+
+it should be possible to run test by number
+
+test 303 doesn't work with new dependers.pm when showing line number (see line 342)
+
+need test for %FILE_TO_BUILD_PATH  %FILE_TO_BUILD_NAME
+
+next version of pbs and its test suite shall not be dependent on the text output
+
+Failed tests should generate a manually runnable test
+
+^sub flag_nge doesn't work since simplified rules made it to plugins
+
+^'0' ne '0' ???

@@ -1,0 +1,161 @@
+---
+name: PerlBuildSystem
+version: 0.30_1
+author:
+  - Khemir Nadim ibn Hamouda. <nadim@khemir.net>
+abstract: ~
+license: restrictive
+requires:
+  Cwd: 2.06
+  Data::Compare: 0
+  Data::Dumper: 2.12
+  Data::TreeDumper: 0.20
+  Devel::Cycle: 0
+  Devel::Depend::Cl: 0.01
+  Devel::Depend::Cpp: 0.05
+  File::Basename: 2.71
+  File::Copy::Recursive: 0
+  File::MkTemp: 0
+  File::Spec: ''
+  Getopt::Long: 2.32
+  GraphViz: 0
+  Math::Pari: 0
+  Net::SSH::Perl: 0
+  Net::Telnet: 0
+  Pod::Simple::Search: 0
+  Term::ProgressBar: 0
+  Test::Class: 0
+  Test::Cmd: 0
+  Tie::Hash::Indexed: 0.03
+  Tie::IxHash: 1.21
+provides:
+  PBS::Attributes:
+    file: PBS/Attributes.pm
+    version: 0.01
+  PBS::Build:
+    file: PBS/Build.pm
+    version: 0.04
+  PBS::Build::Forked:
+    file: PBS/Build/Forked.pm
+    version: 0.04
+  PBS::Build::ForkedNodeBuilder:
+    file: PBS/Build/ForkedNodeBuilder.pm
+    version: 0.01
+  PBS::Build::LightWeightServer:
+    file: PBS/Build/LightWeightServer.pm
+    version: 0.02
+  PBS::Build::NodeBuilder:
+    file: PBS/Build/NodeBuilder.pm
+    version: 0.02
+  PBS::Build::Threaded:
+    file: PBS/Build/Threaded.pm
+    version: 0.01
+  PBS::Check:
+    file: PBS/Check.pm
+    version: 0.04
+  PBS::Config:
+    file: PBS/Config.pm
+    version: 0.03
+  PBS::Constants:
+    file: PBS/Constants.pm
+    version: 0.07
+  PBS::Cyclic:
+    file: PBS/Cyclic.pm
+    version: 0.03
+  PBS::Debug:
+    file: PBS/Debug.pm
+    version: 0.03
+  PBS::DefaultBuild:
+    file: PBS/DefaultBuild.pm
+    version: 0.04
+  PBS::Depend:
+    file: PBS/Depend.pm
+    version: 0.06
+  PBS::Digest:
+    file: PBS/Digest.pm
+    version: 0.04
+  PBS::Distributor:
+    file: PBS/Distributor.pm
+    version: 0.01
+  PBS::Documentation:
+    file: PBS/Documentation.pm
+    version: 0.02
+  PBS::Documentation::Indexer:
+    file: PBS/Documentation.pm
+    version: 0.02
+  PBS::FrontEnd:
+    file: PBS/FrontEnd.pm
+    version: 0.30_1
+  PBS::Graph:
+    file: PBS/Graph.pm
+    version: 0.04
+  PBS::Graph::Html:
+    file: PBS/Graph/Html.pm
+    version: 0.01
+  PBS::Graph::Snapshots:
+    file: PBS/Graph/Snapshots.pm
+    version: 0.02
+  PBS::GraphViz:
+    file: PBS/GraphViz.pm
+    version: 0.1
+  PBS::Information:
+    file: PBS/Information.pm
+    version: 0.04
+  PBS::Log:
+    file: PBS/Log.pm
+    version: 0.01
+  PBS::Output:
+    file: PBS/Output.pm
+    version: 0.03
+  PBS::PBS:
+    file: PBS/PBS.pm
+    version: 0.02
+  PBS::PBSConfig:
+    file: PBS/PBSConfig.pm
+    version: 0.03
+  PBS::PBSConfigSwitches:
+    file: PBS/PBSConfigSwitches.pm
+    version: 0.02
+  PBS::Plugin:
+    file: PBS/Plugin.pm
+    version: 0.03
+  PBS::PostBuild:
+    file: PBS/PostBuild.pm
+    version: 0.01
+  PBS::ProgressBar:
+    file: PBS/ProgressBar.pm
+    version: 2.09
+  PBS::Rules:
+    file: PBS/Rules.pm
+    version: 0.09
+  PBS::Rules::Builders:
+    file: PBS/Rules/Builders.pm
+    version: 0.01
+  PBS::Rules::Dependers:
+    file: PBS/Rules/Dependers.pm
+    version: 0.01
+  PBS::Rules::Dependers::Subpbs:
+    file: PBS/Rules/Dependers/Subpbs.pm
+    version: 0.01
+  PBS::Rules::Metarules:
+    file: PBS/Rules/Metarules.pm
+    version: 0.01
+  PBS::Shell:
+    file: PBS/Shell.pm
+    version: 0.02
+  PBS::Shell::SSH:
+    file: PBS/Shell/SSH.pm
+    version: 0.01
+  PBS::Shell::Telnet:
+    file: PBS/Shell/Telnet.pm
+    version: 0.01
+  PBS::Triggers:
+    file: PBS/Triggers.pm
+    version: 0.01
+  PBS::Warp1_5:
+    file: PBS/Warp1_5.pm
+    version: 0.03
+  PBS::Wizard:
+    file: PBS/Wizard.pm
+    version: 0.02
+generated_by: Module::Build version 0.2608

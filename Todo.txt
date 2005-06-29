@@ -1,0 +1,1302 @@
+Perl Build System
+=================
+
+#wizard info and help
+
+Release
+	Batch::PBS
+	#Data::Dumper
+	#Devel::Depend::Cpp/Cl
+	PBS
+
+The parsing and handling of the type of the rule should be left to perl	like we do with AddRule. 
+	=> SR[], => PR[] ...
+	=> we need overloading a la C++
+
+ShellCommandGenerator in Builders.pm re-evaluates PBS_REPOSITORIES for every node
+	but BuilderFromStringOrArray doesn't! in any case the way to re-evaluate
+	PBS_REPOSITORIES modifies the config for all the nodes sharing the
+	pbs_config.
+
+	what about the special %PBS_REPOSITORIES handling in Config.pm
+	
+handle -I vs /I in shell commands with %FILE_TO_BUILD
+	
+language simplified should also handle a plugin to make it possible to add, say, $build_directory, ...
+	=> euuu! $build_directory in the dependency definition !!!!!???
+
+We need a unified way to present output, whatever mode we are running in
+	ex modes: progress_bar, -j, -ubs, -so, ...
+	node header missing when node build fails (when not in -j mode)
+
+C_Depender and warp 1.5 dewarpifier could be the same code
+
+_warp 1.5 doesn't rebuild the ancestor tree
+	=> OK, warp is not made  for searching, only be fast
+
+^ C dependencies cache doesn't rebuild ancestors properly
+
+We should display a warning when intermediate file is excluded from digest
+	=> intermediate files should _aways_ have a digest
+	=> or is it nodes with builders that should always have a digest
+		what about having a creator?
+
+At check or just after, a 30 MB memory usage boost appears???
+
+document what warp 1.5 does, specially regeneration
+
+_ We rebuild too much! when C_depender changes, we should rebuild only if the dependencies change md5.
+
+when compiling error occurs open build buffer in editor
+	=> What about listing the file names somewhere where a post pbs or a script could take over?
+	=> this assumes the build buffers are kept
+
+^^^^ AddEnvironmentDependencies does not work with warp as do the other AddDependency functions (Add Switch)
+
+-p pbsfile displays warning about relocating pbsfile ????
+	=> couldn't reproduce at home!
+	
+Is LOCAL_NODES really needed when the node does have a a different path
+
+META_NODE 1
+	one node is multiple files in the filesystem
+	
+Create a term and acronymes section
+
+allow creation of builders that generate shell commands
+	=>type the builders or modify all the builders to have a special mode (bof)
+		ShellCommand(\&DoSomething, 'arg', 'arg') ;
+		sub DoSomething : ShellCommandsOnly
+		
+	? should creators be tagged in that way too?
+	
+document how to write a builder override
+
+Stop using closures!
+	=> have minimized some of them in the builders section
+
+_ verify config when linking to existing node?
+
+_ parallel C depending
+	it it possible to build the dependency graph without C depend, depend each C
+	file separately and parallely then merge each C file dependencies back into
+	the dependency graph
+
+...? micro warp file for each subpbs
+	=> usefull if the whole warp tree must be rebuild . ex a Pbsfile is changed
+	=> not realy usefull in common case where pbs is run in warp mode
+	=> might be used to speed up warp file creation which become a list of micro warps
+	
+	=> decentralize warp files.
+		each warp file would depend on it's own dependencies instead for the global warp file to depend on all
+		Only the warp file part would need to be rebuild. 
+		We might even be able to restart building from a specific node instead for the root
+		another example is subpbses, they could have their own warp files
+	
+	=> hmmm isn't this no more than adding the pbsfiles as dependencies to the nodes?
+		=> except it is top down instead for bottom up!!!!
+		
+	=> if every node in the tree has a dependency to a pbsfile-node, a modification in a pbs file
+		would 'trigger' the nodes, except that children to the triggered
+		nodes must also be removed as we don't know if they are part of the warp tree or not
+		
+Optimize memory usage
+	=> no separate packages for each subpbs
+	=> no reload of rules
+	=> hashes are expensive (but so cool)
+
+find a pre_processor within a module
+
+find a way to build with light weight processes
+	=> worker pool
+		socket communication so the workers can be remote if needed
+	=> use an existing RPC module if possible
+
+_builders using shell commands only should automatically generate warp2 stubs
+	=> what about adding it to the tree through a node sub?
+		=> meta rules are a bit more difficult
+	=> getting it as a result from the builder
+		=> builders can serialize themselves
+		=> need a special mode when building Warp2 data
+			for nodes already build
+			
+^when merging nodes in c_depender, shouldn't we set dependent too get ancestors properly?
+	=> yes, __DEPENDENCY_TO should be set or we get an error.
+
+^C file was removed when it couldn't be depended !!!!!
+	made an error in the include path, forgot -I
+	
+Change ImportTrigger(file) to Import(file, Trigger) ;
+
+...trigger inserted nodes are searched in $inserted_nodes only this means that trigger
+	inserted nodes from a sub pbs with LOCAL_NODES will NOT be found!
+	=> keep all the LOCAL_$inserted_nodes in a list
+		this would make it easy to know how many nodes we really have in the tree
+		warp 1.1 wouldn't neet to traverse a tree (hmmm, how do we rebuild multiple trees ?)
+		The original $inserted nodes should be in the list too
+		PBS could push $inserted nodes in the list when is is not defined .?
+
+Remove spurious references to full path C files introduced by depender
+
+make warp2 give the possibility to modify the warp tree without running the subpbs
+make warp2 -j and - distributor aware
+rewrite the rule generator so shell only commands can be warp2 enabled automatically
+
+warp2 tries to regenerate the sub builder for a node
+warp2.5, tries to use the wapr2 nodes within a normal pbs
+
+... --load as for make
+
+More resilience if a build  dies without returning any error
+	time out? multiple_timeout and then kill?
+	Restart the build? what if the shell was a fixed one?
+	we must keep info on which node was being build
+	
+Catch ^C when building and die nicely
+	=> show what builders we are killing and what they were building
+	=> generate warp file
+		=> complicated as warp needs the inserted files list and C can happend at any place
+		=> none of the build files will get their md5, this means next run will be slow anyhow
+	
+distributor should be more dynamic than just handing a shell, they should be called when scheduling a node too.
+
+
+...Should the build directory be based on a warp signature?
+	on hold till we decide how to differenciate them for the user
+		md5 is not user friendly
+	what if we want to reuse most of what is in the out directory even
+		if the config is slightely diffrent
+
+what about a specialized filesystem to speedup dependency?
+	we "serialize" the dependency tree and let the filesystem do the triggering
+	this allows us to very fast know if a whole subtree has been modified or not
+	Problems to be fixed:
+		How do we serialize?
+			FUSE FAm nullfs overlayfs portalfs
+			
+			each warp has a unique signature, we can keep a list of dependent in a warp signed file
+			each file in a dependency file get a 'special' file named: warp_sig +  filename (ie X) in the
+				directory where the file is. The fs checks that file (and all other special file with
+				other warp sig for file X). The trace file (the special file) for a given warp signature 
+				contains a list of all the dependent to file X and the location where to write the trace data
+				if file X was to be changed. It could also contain the original md5 of file X.
+				It would make sense to have the trace file to be a perl script that is evaled from the fs,
+				this would be effective if we embed a perl interpreter into the fs, this would free the fs
+				from the logic internals. All that need to be done is eval a file if it exists.
+				
+				If a perl evaluable trace file solution is choosen, this could be done:
+					- check the md5 before doing anything else
+					- write the list of dependent where the original warp file
+						warp3 would evaluate the file to removes the nodes that need rebuild
+					  alternatively we could link/move the signature file to avoid writting alltogether
+					- a background build can be started  
+
+				trace file should fire if the file is removed too
+				
+				? Could we remove the trace file? This would "trigger" a build just once.
+
+		Multiple users, project, configs. Sometimes a single project might have multiple configs
+			=> no problems with these says ALI
+			
+		?How do we detect if a files is fiddled with outside the fs control
+			we can't gurantee it  => md5
+			use warp1
+			disable access in normal fs
+			
+	@ since we follow warp signature, we can find the sytem that had the dependencies
+		the sytem needs to be rebuild when one of the dependencies is changed
+		this means that we can start a build when a dependency changes thus having an uptodate
+		system (for any of the builds on the fs)
+		
+		if no auto build is attempted, it is easy to write a tool that finds all the trace file that
+		have been moved to the warp file's location thus listing the projects that need rebuild
+
+Warp signature should depend on all the configs not only a choosen few
+	problem with PBS setting data in config after warp checked the config
+		=> PBS shouldn't do that and should require the config to be set properly befor pbs() is called
+		=> we could separate setup data from run time data and generate signature from setup only
+	if the config is set properly to start with, the warp signature computation always returns the same value
+		=> cache the warp signature => cache the filename directely
+	shouldn't we be dependent ont prfs content instead for its name
+		we shouldn't use it at all but use the config instead after it has included the prf contents
+	... warp file must md5 itself to avoid warp file corruption
+		put this in a separate file
+		? isn't this overkill ? who is going to change a warp file?
+	#=> move $number_nodes_in_DT to the end and check for defined or not
+      
+Check the header file override problem
+	must add include path
+		=> change in the pbsfile
+		=> must be documented
+
+Can we distribute the pre-processing for distcc
+	1/ let n boxes run pbs till the dependency tree is buils on all boxes (fs are synched)
+		all boxes get the same build sequence
+		the master builder gives a slice of nodes to build to the slave builders
+		fs are synched
+		
+	2/ synch the needed files to the slave (do this smartly by building the nodes that have the same dependencies on the same box)
+		by remoting the distcc call to another box, synch of the dependencies must be done to  the builder box
+		if gcc is used instead for distcc, we get a normal remote shell build except for the synch (instead for nfs)
+		if we remote multiple builds and use distcc, we get part of the parallel build pre processed on the slave box
+			and the compilation distributed by distcc
+		!! no need to install the any files on the slave box as the needed dependencies are automatically synched! we have the md5s
+
+Can we distribute the dependency step
+	fs are synched
+	Distribute the subpbs
+	each subpbs tree becomes the head of a pbs on the slave box.
+	the master box (eventually) merges the build sequences and parralelize it to the slave boxes
+	the config for the the common nodes (which exist on all boxes) must be verified as no linking can be done remotely
+	if only few nodes are common they can be build on all boxes anyway, simplifying the parallelizer and build step
+	when a common node is build on a specific slave, it must be synched to the other slaves waiting fot it
+		best is to keep the nodes with dependencies on a shared medium.
+	
+	configurating, on the slave box, which subpbs is run on which box can be:
+		- dynamic
+		- simply through a local text file local text file can add rule with post depend which removes all nodes not to 
+			be handled localy	another text file could also define the distributor/build_sequencer
+	
+_pralellelisation of build is not optimal, build parents before terminal nodes.
+
+Unify color used by -dji
+
+Check variable names .....
+	use check_word.pl (using PPI)
+
+find all output strings and check them (ex parrallel)
+	
+Caching of PbsUse 
+	red pen analysis done. => Intricate, might be possible in PBS2
+	is it possible to get an eval reference?
+
+Add information to node information dump
+	#shell => display_shell_info gives a good enough result
+	commands when using -ni => difficult as commandes are embeded within a closure
+		=> commands should be added to the dependency tree when the nodes are created
+
+... __BUILD_DONE, __BUILD_FAILED and fields set by builder subs should be done in the main process when using -j 
+	maybe we should have a generic protocol ,between the worker and controller, to set attributes
+	when re-written pbs OO, the node members could be remapped to a write data remotely
+	the protocole is needed for warp2 as only the builder can return a list od subs or shell commands
+	#-j 2 -warp needs 2 runs before doing nothing => because of missing __BUILD_DONE
+
+have an "insertion line" field instead for adding it to the "insertion file" on -o
+
+make it easy to regenerate a build from a log, including versions/md5 for the files
+	having the md5 for the files doesn't help if we can't find the files anymore
+	maybe we should make a tar ball with the files and the build system instead
+
+generate a list of the shell commands (and perl sub stubs) that are needed to:
+	# Add __BUILD_COMMANDS
+	generate the whole build as if it didn't exists
+	generate the missing part of the build
+	
+	This is warp 2! We need to rebuild the dependency tree when one of the node to be rebuild
+	has a perl sub dependency. If no perl sub dependency exists, re-running the shell comands
+	should be trivial and no require any dependency tree rebuild. even if part of the nodes
+	are build by perl subs, we could run the rules on those nodes only not all the nodes.
+	===>>> in fact we don't need to run the rule on the node as we know which rule is to 
+			build the node, we could simply set the builder from the rule list if there is no
+			builder argument. Running the rule to set the builder is in any case cheap.
+	should warp2 regenerate the warp tree? ie when an error occures next run in W2 doesn't have the fields set????
+
+dump tree in SVG
+	needs to be embeded in html
+
+support for autoconf ?
+	generate a define list from the autoconf generate header file
+	=> check autoconf perl module
+
+Do we need a cache like CCache?
+	=> NFS is bad! a local cache seems like a very good idea
+	=> CCache make it worse localy!!!
+	How do we search for a node in multiple repositories instead for stopping at the first found
+	and eventualy rebuild while another node in the other repositories might match
+
+Add switch for only showing a nodes data without it's child nodes data.
+	! good idea but not possible before we type the nodes or use ^__ for all non node fields
+	tying and blessing are orthognal but we still need to change all code that expects a HASH to a PBS::Node
+	? should we bless or tag
+
+... Defered build: build only what is needed to work now but Q the less important nodes (ex doc)
+	should this be a rule attribute?
+	should we let the user define new attributes and handlers?
+		GenerateDepender verifies that the rule type is one of the registred types
+	?! why should PBS be involved here? this has to do with builder and PBS knows nothing about builders
+
+Display: do not display build name if it's the same as the node name (for the html documentation)
+-gtg_html: insertion rule looks weird!
+
+PBS server could cache the subs only and we keep the tree in warp form.
+	it should be possible to re-generate the subs if necessary
+	the warp file could keep a guid for the builder sub to facilitate finding it when needed
+
+give OO interface as well as non OO interface:
+	we should be able to start independent builds (OO interface) but let the builds use non OO interface in the pbsfiles.
+
+Make Pbs a build server. Computes build sequence from rules. Rules come from clients written in any language.
+
+Build server could cache the Pbsfiles and the dependency tree for next run
+	Check phase could be replaced by MD5 verification (sortof warp on live data)
+	
+Warp2. Generate a "perfect" monolitic build system for the configuration at hand. (we still run rules)
+
+Warp2-3. Extend Warp1 with build code that can be evaled and run when needed without needing to load Pbsfiles.
+
+Warp3. Look at the warp tree like a build sequence instead for like a dependency tree. The build sequence becoming PBS
+
+Warp4 when a warp3 build sequence must be rebuilt, only the changed part is re-generated.
+
+
+? how de we handle ['./inc/file' => 'file'] so it works ?
+	=> use TARGET PATH
+	=> use real depender
+
+Check and document LOCAL_NODES
+	warp works fine with local nodes even if the inserted files do not contain all nodes
+		because the nodes removed from the warp tree go up to the root
+		and the 'root' is always in the primary inserted node list.
+		
+
+package PBS + perl + build system + source so it can be distributed.
+
+Front end in other languages: python, ruby, ... ?
+
+-warp and -j when the terminal nodes are already build.
+
+C depender should evaluate -I pathes to reduce . and ..
+
+triggers and subpbs are virtualy the same
+	instead for linking the node by hand in a subpbs, simply link it from the inserted nodes
+
+add ./ to targets at PBS::PBS start BUT not when defining the root rule, or ??
+
+Bundle
+
+gtg_gm 1+ seems to crash GraphViz when used with gtg_p
+
+Re-intrency
+
+_ redirect stdout/err to file even when not using -j
+
+_ INHERITANCE of PBS_CONFIG and CONFIG should be done through reference and override instead for copy
+
+##############################   Done   ########################################
+
+#Get the C depender (and other dependers) to exclusively use PBS md5 functions instead for defining it's own. 
+	Let PBS check the C digest
+	=> used warp1_5
+
+#Warp 1.0 (new) and 1.1 fail regenerating when an error occured
+#... remove all non perl language interface: ie use regexes
+#... simplified language could translate to perl regex.
+	# add the possibility to 'PbsUse' the translator => see language directory
+
+	=> fixed but discuss fix with Ali
+
+#^Log of 230_000 lines for 700 nodes is a bit overkill
+	#this is a good candidate for a plugin
+
+#add file name filtering function
+	? through a pbs config, ie AddPbsConfig DEPENDENCY_NAME_VALIDATOR => sub{} or regex
+
+#Triggers use simplified regex and should use perl regex instead
+	=> had to temporarely add GenerateSimplifiedDependentRegex to Trigger.pm
+		so it could pass tests
+
+#Subpbs regex definition should use pure perl or be overridden
+	=> hmm think it is already a regex
+
+#AndMatch should not assume code but verify it at 
+	PerlBuildSystem-0.28_10/PBSLib/Dependers/Matchers.pm' line 68.
+
+! use make as a distributor !!!
+  make consumes 2M before it gets any input, so no significant memory saving
+  compared to Perl Build Server.
+
+! -dac should be better indented and give better info in a better format
+	#verbose but not so bad
+	=> maybe a regex for what keys and/or packages and/or pbsfiles could be good
+
+!can we thread the depend step too?
+	yes, and merge nodes if they should be linked but what's the use? there is very little IO involved so threading doesn't help
+		better to distribute it
+
+!Add insertion time to node display
+
+!generate tree with color graduation depending on the insertion time
+!Rule to verify that no C files are forgotten in the directories from where we get source for the build ? (repository??)
+
+!Revise the fact that all the dependers are run. We could mark some of the rules as terminal and speed up the depend step.
+
+!?top level Pbsfile modification should make all sub levels rebuild because of the parent configuration change.
+	Supbs are NOT dependent on their parents config. Every config that should be used in a subpbs digest must be declared. We could introduce a function to do that.
+
+#Give more info when ignoring a builder.
+	=> What builder will be used
+	
+#wizards are broken
+	=> was bad line termination
+	=> Obigo wizard were in PBS group
+
+#Release DevelDepend Cpp Cl and add them to the dependency list
+
+#%xxx should be handled in a single place
+
+#Add plugin for:
+	#add other %XXX not supported by pbs
+	#file name verification
+	
+#fix group ownership in t and other directories
+
+#display subpbs run and depth and displaying full information
+	=> run 95 in world takes long time. Which one is it??
+	added to display when using - dsi -sfi
+	
+#pure perl rules must become standard and a simplified user module should exist
+
+#Add Term::ProgressBar to PBS
+
+#Tag node names with Perl/shell builder
+	=> -dbi
+
+#builder_override should not be taken if it is undef or a nice error message
+	is needed. check the checking code too.
+
+
+#add %FILE_TO_BUILD_PATH  %FILE_TO_BUILD_NAME
+
+#fix emil's find include module and 'Obigo Pbsfile' wizard
+
+#less output when C file needs to be re-depended
+
+#--display_different_digest_only should set display_digest
+
+!let the C depender get part of the digest as an argument
+	=> write a digest parallel to the C digest
+
+#handle broken pipe
+       => fixed one error with unhandled exception.
+	!re-try the build ???
+
+#META_NODE 2
+	one command generates multiple nodes
+	=> this can be implemented independentely from PBS by letting the builder "know"
+		if it has already been run or not
+	
+#--ni is broken
+
+#How do we mark a perl sub builder as only using shell commands?
+	should those be run just to generate the commands so we can remote them?
+		=> added it as rule attribute
+		
+# time_builders should show time spend in nodes build by perl subs versus node not using perl subs in their builder
+
+#should -bni show more about the builder, specially USES_PERL_SUB ?
+
+
+!log plugins calls
+
+#look at all the switched so silent mode is default
+
+#Total build time is not displayed in forked build
+
+#Warp file version is not verified
+	in warp file
+	in C dependency files
+	
+#Env variable do not work as targets in PRF file.
+
+#AddEnvironementDependencies has an extra e
+
+#Add "No matching rules" when a node fails to build and it has no rule matching
+
+!How to handle configuration setting at subpbs level
+	=> run project but filter which subpbs comes in => always up to data config
+	=> dump an evaluable config at each subpbs level and add a use config switch
+	=> Do as in Nailara
+
+	=> Can be handled like in Nailara; PROJECT_CONFIG on
+	command-line, ...
+
+
+!Can't we reduce the dependency tree on the fly (warpification) when all the data are not needed
+	=> doesn't seem to change a lot
+	what about serializing the live data once in a while?
+
+#^Forced doesn't work with warp 1.5
+
+#^^problem with cyclic dependencies that desappear.
+	=> this was fixed once already! 
+	had to do with cycle desapearing because of linking when mergin the C dependencies cache (I believe)
+
+
+#PBS_CONFIG should be reduced before it is passed to PBS
+	# no diffrence
+	
+#parallel builders should use a single communication channel
+
+#silent mode should be default
+	=> builder process output should only be displayed when error occurs
+		=>support was added to Forked.pm but is not used yet.
+		
+	=> this is even more true for parallel build where display is
+	so fast that it makes no sense and uses resources for nothing
+
+#progressbar in depender
+	=> heuuu?
+	=> DISPLAY_COMPACT_DEPEND_INFORMATION
+
+#type creator should be added through node sub
+	=> not possible as it is used before node subs are run. Cleaned it a bit though
+	
+#Compute a newly build node MD5 directely after its build as it is fresh in the cache
+	=> Generating Warp 1.5 takes 30 seconds
+	
+!Computing the build sequence while checking a warp 1.5 tree is trivial
+	=> it's also possible to take a "full" build sequence and remove nodes that are not to be build from it
+		parallelisation is more complicated in this case
+		
+	=> when running warp, the checking is only done on unbuild nodes (warp checks the build nodes)
+		in obigo world the checking only takes 2 seconds for 5000 nodes
+
+!Derefer builder generation till the node need to be build
+	=>we could get PBS run time errors instead for PBS "compilation" time errors
+	# faster depend => in argus2_test diffrence is 5/100th s
+	lower memory usage
+	
+!install pbslib directory
+
+#? add a perldoc like documentation that would extract the function help directly from the modules
+	? pod::find + Pod::Select + Pod::Text
+
+!Should the md5 of a C file be generated from the pre-processed source?
+	what if we generate documentation automatically from comments? => wouldn't work anymore
+
+#!plugin should be dynamically loaded instead for batch loaded (? should they)
+
+#!Addconfig XX => undef ;
+	=> undef is a value like any other but we need to document this behaviour
+
+#!Clarify Hosted vs Distributed shell and how to use them
+	? where
+
+#!make xx.c.depend files depend on the depender module => nothing depends on PBS so far
+
+#check if we can make the digests smaller
+	=> warp 1.5 digest
+	
+#TIME_STAMP_SYNCHRONIZING for c files could be entirely removed!
+
+#named user defined dump filter ex: -tdhtml -tuf only_names.pl
+	write a wizard for a 'tuf'
+	the whole --tt could be moved to a user post build module instead for being in PBS
+	we should be able to queu post build scripts
+	we could pre process the command line to add user specific switches instead for long post_build commands (ie -tt => --post_build something.pl)
+	we must also display help for those user defined switches
+	user defined switches should always start with a specific letter or letter group
+	the user plugins could be set in a specific directory and found automatically
+
+!? lock directories, if the directory is locked and the lock id hasn't changed then no
+	node under the directory has changed and needs to be checked or rebuild, just used
+
+#!? --preamble --postamble 
+
+#Understand: __PBS_FORCE_TRIGGER
+	The C depender can find out that the C file must be rebuild, it
+	adds a __PBS_FORCE_TRIGGER dependency to the C file dependencies.
+	PBS will force a triggerring when this dependency is found.
+	Rule/C_Depender handles _all_ the dependencies for a C file because
+	we do not generate digest for H files. Something must trigger from 
+	the H	files level => C_depender with __PBS_FORCE_TRIGGER
+
+#!number of build threads could be dynamic
+
+#keep all commands output for post analysis, ie # warnings , their types .... => on switch only
+	--post_node_build perls_script.pl (per node only, no global loggin, the user perl sub can do that if it wishes)
+	=> --kpbb
+	
+#Verify existance of post_pbs file before running.
+	#error message too verbose
+
+#Look at Make::Cache and Schedule::Load
+
+#we also want to define which shell is going to build a node
+	!when the node is created
+	!when creating the build sequence
+	#when scheduling the node => the distributor get access to the build sequence and can set unique shells for a node
+
+#remove unnecessary code from triggers
+#comment format for triggers input data
+#add triger sub => was already done
+
+#dump of triggered tree should show inter trees dependencies
+
+#Let PbsUse take a list of files
+
+#We have two implementation of Md5Tagger!
+#we have two GenerateWarpFile!
+
+#partial warp / lock / unlock from command line
+	? dynamic load of warp componants ?
+	=> simply consider the componants to be final instead for try to depend them!
+	
+#Sequential Build should also honor -kpbb
+	=> let -j 1 handle this
+
+#Can warp be made faster by creating a build sequence and use it as
+	a list of md5 instead for having the warp tree and checking the md5 
+	by traversing it.
+	? do we even need to have a warp tree?
+		=> the tree is what gives us the dependencies between nodes thus which node
+			to remove when one file has changed. This could be replaced by another
+			structure (list of dependents) so we don't need to run PBS to find out what
+			nodes are to be removed from the %inserted_nodes. The list should be ordered
+			so we can eliminate nodes instead for checking their md5.
+			
+	#We shouldn't need to count the nodes in the warp tree! We know that
+		when we write the warp tree
+	=> implemented in warp 1.5
+	
+#what if the source directories are added to the C depend file forcing a rebuild?
+#	C file dependency cache is dependent on CFALGS_INCLUDES thus forcing a rebuild
+
+#Output subs should check their input for undef
+
+#AddConfigVariableDependency
+#AddNodeConfigVariableDependency
+#	AddVariableDependency is evaluated when the function is called
+#	AddConfigVariableDependency is evaluated when the digest is generated
+
+
+#define documentation command line syntax
+#pbsdoc -f -s ?? info page?? => generate html documentation with links
+
+#^Virtual nodes have no digest and can be dependent on source file that have no digest themselves
+	=> Have a null builder for the file
+	
+#Shouldn't trigger inserted roots (in warp) be ordered to guaranty the same build order every time ?
+
+#vi out_nadim/nailara/os/mem/poolheap/PoolHeap_AllocAndFree.o !!!????
+
+#rebuilding without warp after a warp build does build stuff !??????
+	Warp should update the rebuild nodee digest so running a non warp after a warp doesn't force a rebuild
+
+#Warp 1.1 doesn't support Triggered tree
+
+#Warp 1.0 erroneously reuse the dependency tree it has evaled! it should use the one returned by PBS::PBS::Pbs
+
+#Config options can be call global
+#	AddConfigTo 'color:SILENT_OVERRIDE' =>
+#		 white => [0 0 0]
+
+#post_pbs can be a plugin
+
+#add switch to not show header files in -tt -tno
+
+#Make C_Depender --sd aware for digest files
+
+#Move -tt to plugins
+
+#documentation module is buggy
+
+#plugin architecture
+	#find plug ins automatically
+	#register the defined function automatically
+	#register command line switches and their help
+	#documentation module should search the plugins too
+	#plugins can be unique or in a list
+		what is acceptable?
+	#add --pbs_plugin_path
+
+#? generate warp file more than once ?
+	#IWW
+	#? separate warp file and MD5s
+	
+#AddPostBuildRule has arguments, should we keep them?
+
+#?  seems that the dependers ar not passed all the arguments they expect
+	=> they are in the rule context
+
+#Generalize AddRule to take a sub instead for a build argument
+	AddRule 'name', [], builder, '-02' becomes AddRule 'name', [], builder, BuilderArgument('-02')
+	Could be used for: HostedBuilder, debugging (though -d is better)
+	? who is going to run the sub, the builder, the depender, ... 
+	
+	Should Rules also have a sub run when a node is created
+		AddRule 'xx', [], undef, args, [sub, sub, sub]
+			=> replace args with the more generic sub
+		This can be used for
+			- arguments
+			- node builder timeout
+			- host shell
+			- config
+			- pbs config
+			!- subpbs
+			!- ruleset( exclusive, additive substractive)
+			!- exclude from digest
+			!- debuging ??
+			!- post_build_rule
+			
+	
+	the subs can be defined in modules that need the information later when building the node
+	
+	
+#-warp can't run when no build is made as the build generates data for warp
+	=>make it more resilient
+
+#hosted builder checks to see if the command is a sub ref but an array ref might contain sub refs
+#	and that is not checked. should subs always be run locally even if the builder is remote?
+
+#Add shell override to support distributed build
+#Add distribution switch and file format
+#we need to control how many local builders we use when --distributed
+
+#Builder sub wrapped twice when using HostedBuilder
+
+#existing file while Virtual warning should show some stats about the node and if it is a directory
+	#should we warn when it is a directory?
+
+#SHELL_ORIGIN is not set properly
+
+#can we build a build cluster
+
+#distributed builds.
+
+#dump tree in dhtml with inter-node links
+#we used to be able to generate a graph from a log, where did it go? => --dump
+
+#change default build directory to out_$user_ame
+! mandatory_prf
+! global prf
+! warn if global prf is overridden
+
+#catch AddRule without name (ex the first argument is an array ref and contains
+	#the depender instead for VIRTUAL ...
+
+#exclude from digest should verify the arguments type
+#Add warning when overriding exclude from digest
+
+#subpbs package names should be unique ????
+	#can't do that
+#do we need to set package names for subpbses ???? => indeed
+
+#remove references to c depender simple from digest.
+#GenerateBuilder has changed package.
+
+#! was slower! use md4 instead for md5. Make the digest function a pluggable one.
+
+#colorgcc doesn't color if stdout is not TTY.
+	the problem came from colorgcc which doesn't color if stdout is not a tty
+	another problem (bug) was that colorgcc added an ANSI reset code for lines that are
+	not colored which made arm ld croak!!
+
+#forked build has bad module path!
+#forked build doesn't work. FindUnique node dies.
+
+#sudo cpan install Tie::Hash::Indexed
+#sudo cpan install Devel::Depend::Cpp
+
+#alias gtg_snapshot and gtg_snapshots
+
+#gtg_snap_shots needs gtg_tree !!
+
+#C depdndency time must be after C node insertion time if we want snapshot to work.
+	this is due to the fact that C dependencies are cached in the .dependency files and their time is 
+	the time the dependency file was generated
+
+#gtg_frame didn't generate output
+
+#make it easy to use language plug-ins (language can also define their own functions to replace 'AddRule')
+	PbsUser Language/Simplified ; # override built-in AddRule
+	AddRule [...], ['*.o' => '*.c'] ;
+
+#how to have the same node with multiple configurations
+	when linking, check the config
+	if config is diffrent push a new config in the node instead for a new node in the tree
+	check the node for each config
+		which means that the build name and other infor must be config specific instead for node specific
+	build sequence
+		? do we build nodes first or compiler first (or other config)
+
+# was already done. __BUILD_DONE should be handled in Build.pm
+
+#add why a node failed to build in the tree so post_pbs can report it
+!add the build time and where a node has been build to the node information
+
+# it does now! Does PBS exit with an error code when the build fail?
+
+#Possibility to give a script to be run when the build is finished (to generate reports)
+	#give it access to the build tree
+	#is it when pbs.pl or FrontEnd is finished?	
+
+#?Why can't we overide a parent configuration variable in the command line definition of a sub pbs?
+
+#add breakpoint on variable setting
+
+#LOCAL_NODE break warp
+
+#! LOCAL_NODE could be a sub LinkToNodes{}
+
+#Speedup pbsfile loading by cloning subs
+	=> doesn't work so good, time is mainly spend in the registration of rules and config
+	? could we clone the rules and the config?
+		how do we check so that dynamic actions are done right?
+
+#output should be tabbed with the pbs level (ie 0 tab at level 0, 1 tab at level 1, ...)
+#	No manual tabing should be done within a single multiline output
+
+????
+#?warn when linking to a node with different config
+	#user registred function can do that
+
+!!!! ios.h
+	#AddRule 'subpbs_name',
+		{
+		  NODE_REGEX         => 'i_os.h'
+		, PBSFILE            => './pbsfile.pl'
+		, PACKAGE            => 'test'
+		, PBS_COMMAND        => DEPEND_CHECK_AND_BUILD ;
+		} ;
+		
+	#AddRule [POST_DEPEND IMMEDIAT_BUILD], 'all', ['all'] ;
+		how doe this react when run as child pbs
+		
+#missing breakpoint wizard 
+
+#standing ithreads problem
+
+#if depender definition is an array and first arg is a sub, call it to know 
+	#if a dependent matches this would allow for
+	#	[ Any(qr/xxx/, qr/ccc/) => 'cc']
+	#	consider it as  pure perl rule?
+	#	Any, not
+	#	, \&sub and documentation
+
+#--time_stamp_checking
+
+#forked build
+	#reuse processes
+	# redirect the output and log
+
+#--timers
+
+#--verbosity and -V
+
+#show that warp is verifying
+
+# Node locator
+
+# GenerateMetaRule verifies the default rule is part of the slave rules
+
+# rule name is not displayed when using -display_dependency_regex
+
+# --durno
+
+#connect to telnet when needed only
+
+#display class in --dr
+
+#rules with creators are pre depend rules
+
+#--pure_perl_rules
+
+#warp problem with triggered node
+	#!shall a trigger which is not a dependency of the triggered node trigger it again or not?
+	
+#!?builder argument must be packed with builder in array ref
+
+#Depender sub and Creator sub have a non standard argument order
+	#GenerateRule accepts depender and post depender subs
+
+
+#add host information to graph => not possible!
+
+#changed log-dump-warp header code
+	#verify variables
+	#use common code
+
+#config: first override
+#-inpulse
+	#always use warp file generation even if build fails
+	#fixed -warp when build is not attempted
+#VIRTUAL should not trigger automatically
+#warp. make build/pbsfile digest and re run pbsfile that need to only
+
+# make Graph modules loading dynamic
+# RunShellCommands returns 1 or dies
+# rebuild c file when digest needs to be rebuild
+# local h file is not recognized automatically, C digest should be removed
+#allowed Pbsfile override, NON_RELOCATABLE_PBSFILE
+#dummy sub !
+
+#? remove -no_triggered_build ?
+
+#Re-test object file repositories, special attention to config
+
+#simultaneous variant build
+	#build 2 nodes at 2 diffrent places with a different config
+
+#distributed /heterogeneous build => need example (with secure conection)
+	#it's the builder reponsibility to get the node build where ever that is
+	#what should PBS provide to the distributed builder to let it do it's job?
+
+#gtg_printer: graph should show trigger with symbole instead for red color only
+
+#!?dump config and die
+
+#shell
+
+# refactor Rules.pm
+# changes switch to depender_definition
+# change builder_sub to builder_definition
+
+#builder can be defined as a single string or an array of strings/subs or a sub
+
+#-dpu 
+
+#header files dependencies.
+
+#object files depend on CFLAGS
+#?object files depend on CFLAGS_INCLUDE
+#!object files or c files ?
+
+#IMMEDIATE_BUILD
+
+#SILENT_OVERRIDE
+
+#Data::TreeDumper wrap options
+
+#if multiple PBS runs: log should be uniq for the global PBS run.
+
+#in AddConfig replace $UPPER with it's value
+	#use same code as for rules
+	#% <=> what should we use in front of the variable to be evaluated?
+	#test with nailara
+
+
+#Nailara doesn't recurse: %PATH_REGEX
+# no! ?EvalConfig should be called at 'GetConfig' not 'AddConfig'
+#? TAGET_PATH => %TARGET_PATH
+
+#PBS::FrontEnd, 
+	#use front end directly in a rule, give Pbsfile as a string
+	#pbs must exit with error code set
+		#does that on die
+		#Default build doesn't return exit code but build sequence 
+
+#check if sd path is added to depender -I list
+	#must be in CFLAGS_INCLUDE
+	#%PBS_REPOSITORIES
+	
+#default colors
+#$DB::single = 1 if(*DB::DB{CODE}), test is not needed!
+
+#check BuildSequenceMiners after latest changes
+
+#inserted_files should be called inserted_nodes! but we have inserted_nodes already !!!
+#add run stamp to PBS package => was already done
+
+#'.' is not a valid build directory (neither '../xxx' I think)
+#evaluate path and eliminate . and ..
+
+#--dump at same location and name as log
+#Add tree generation sub in dump
+
+#licence
+#? Post depend rules are not sorted with each other. They are as they come from an array
+
+#input file names
+	#Pbsfile.pl  could also be pbsfile.pl or pbsfile or Pbsfile
+	Pbs.prf should be dependent on user
+	Prf file should be the one where the top Pbsfile is not the local one
+	#display error message if multiple files are present
+
+#? shouldn't -tt show triggered trees too?
+#make PBSFILE fullpath and relative for subpbs
+	??? was that a good move? see trigger example
+
+#make BUILD_DIRECTORY fullpath for subpbs
+
+#MD5 dependencies: Should we have global digest or per node type?
+	#AddPbsUseDependencies(); moved to the pbsfiles or a switch to not have it automatically
+	#=> if NOT_A_PACKAGE_DEPENDENCYis given as second argument to PbsUse, it is not added
+	
+	#AddConfigDependencies(); # is that missing ? use AddVariableDependency
+	
+	#?AddVariableToDigestForNode(regex => variable_name => value) ;
+	#AddNodeFileDependencies
+	#AddNodeEnvironmentDependencies
+	#AddNodeVariableDependency (?Dependencies)
+	#AddNodeSwitchDependencies
+	
+	#?Should Rules/C add package dependency on CFLAGS (etc) ? Yep
+	#GetNodeDigest
+	#--dump_node_digest node_regex => display_digest
+	
+#--a doesnt add ./ in front of node name => it does! recheck with staffans example
+#--bi '*/*' doesn't match sub node names => it does! recheck
+
+# user_name.prf
+#-build_directory on command line doesn't override switch from prf.
+	#seems to work at home on legend project, test with nailara
+
+#rule number is node needed when using --dd
+#change digest format so all non dependencies start with '__'
+#? can we define -dd for a subpbs only => yep and undef it too
+#gtg_legend => write a Pbsfile to generate it
+
+#test autoloading
+
+#GenerateGraph: pass config
+
+#bug!! in data::dumper::sorkeys =>md5 => graph.pm:500
+
+#gtg_animate: #invisible nodes?
+	#change to snapshot
+	#use argument
+	#!? generate html for each snapshot?
+	#!?scale down
+	#node visible only when one parent is visible or always genereated gtg_tn ?
+		#? is it really better ????
+	#speed up !
+
+#still some Dumper to be found around!!
+
+#Dump tree switch to be able to re-create  graphs
+
+#Triggered inserted nodes
+	#do a manual depend, link to existing nodes and make node available for the rest of the tree
+	#when done check if the new root has been build
+	#can triggered nodes have attributes? No they can't
+
+#Triggers broken and repaired!
+#LOCAL certainly broken. => Repaired
+#__RULES data structure => array[hashes]
+# dependency hash
+#remove __dependencies
+#c_depender broken because of hash usage !!
+
+# -PbsUse switch to include global config?? or use a config to config which config to config
+
+#gtg_html with tool tips showing the rules and configs
+
+#debug
+	#Break on insertion( node_name regex), tied hash ? problem with subpbs??
+	#types: depend build post-build insert tree
+	#Breakpoint('rule_name regex + node name regex', depender => {pre/post}, builder => {p/p}) ; jump into perl debugger?
+	# console (cmds: dump node, gen graph)
+	!?dump debug data directly in the html/graph
+	#?inactivate bp instead for removing them
+	#p_ab ActivateBreakpoints
+
+#__INSERTED_AT should also be a hash
+#debug color
+#OverrideParent and Local config
+#AddSubstractiveRule => removes dependencies  , already possible with POST_DEPEND
+#Target_path == undef ???
+
+#Replace some of D::D calls with D::TD
+#time module loading, remove some modules
+
+#PATH_REGEX => PBSFILE_PATH => TARGET_PATH
+#-create_path_node not always needed, is it depender that creats the path?
+#Generate a tree like text output
+	#use ansi hack
+	#wrap text properly
+	handle ref #SCALAR, #REF LVALUE IO::HANDLE and #objects
+	#add max depth
+	!send extra info to be displayed from filter
+	# change names in filter
+	#wrap 
+#data dumping done only once instead for each subpbs
+#Create log module
+#replace -tno output by -tt style output => -tno works with -tt and -t
+!Do we want a script to change it out directory depending on the configuration?
+	!or to have the ability to check the Pbs config
+#--sco no command output unless error
+#graph remove *.c
+#graph add toto.c
+#No such build point should tip on the name
+#Can't locate gcc in pbslibpath => add where the pbsuse was issued
+#sort switches and targets from response file. was already so
+#make .c dependent on .c_dependency => use digest in C_Depender. ? should we include the c file digest?
+#Does system die if shell dies ? ex command not found? No.
+#automatically touch C file, switch for not doing that and for generating a touch list
+#Verify the message 'you should touch xx.c, I think I modified it at work ?? --dcd
+#isa??? inc c_builder, check examption handler. OK verify with Ali
+#C_depender: add the dependencies timestamp and rebuild if a dep has changed
+#Wizzard
+#	missing subpbs wizard
+#	allow names
+#	build menu automatically
+#	search automatically in all wizard
+#	name and availability in comment in pl file
+#	wizard groups
+#2 dumps of the ancestor? Added a separator in output
+#Add name of file in digest file
+#/^SHOULD NOT BE USED BY BUILDER/ !!!!!
+#Remove GetPbsConfig and GetPackageFile
+#how do we make the digest aware of the config subpbs inherit? Pbsuse a file defining all digest dependencies
+#make no_link_info the default, should linking info be given only in inter pbs case?
+#No digest for virtual files?
+#Node_regex $something/xx => doesn't seem to add './'
+#config is displayed in the graph, but what about the PBSConfig, ex build directory?
+	important is :
+		#done build dir, source dir
+		locked, no external link, no digest
+		user options, 
+		
+#document composite nodes
+#-dr displays 2 messages for subpbs rule
+#PrintUser, PrintWarning2, PrintInfo2
+#Config: Merging rules for locked rules. If the user wnat to die if a config is set otherwise, then he can check and die himself
+#Wizard files uses deprecated PBS::P....
+#Config variable doesn't exist, display only if switch is set
+#ok,triggering nodes are not always dependencies to the triggered node, which PbsConfig should it have then (build dir)?
+	# display in graph
+	!emit warning
+#ReplaceRule
+#-ni like -bi but at check time
+#rename package config to pbs config and __PACKAGE_CONFIG to __PBS_CONFIG
+#-gtg_cn *.c
+#PbsSwitches.pl = command line switches from file, including targets
+#oddinfile like utility, wizard -w, template.
+#Multiple O compile: what if some C nodes are in the build sequence ? ie local nodes, ...
+#couldn't fin any solution for <----------O-|>
+#Should sub pbs use the config already defined or use a new one?
+#display if a config was locked
+#gtg_config gtg_config_edge
+#-bi node_not_to_be_rebuild, show message
+#multiple -bi
+#No import info switch
+#clean Depend.pm for temporary unique dependencies
+#-gtg_sub_tree   generate graph for part of the tree. done if composite target
+#-gtg_cn [./]* accept * without ./
+#Locking => can be done without pbs: die "message ..." if ($ENV{USER} ne 'nadim') ;
+#ImportTriggers
+
+#on-line switch documentation
+#split PBSConfig in a module and data module where we can have more documentation
+#gtg_bd deep recursion if cyclic dependency detected
+#cluster a node and its dependencies
+#Node inserted by meta rule, removed, re-added, links. why?
+#triggered node displayed strangely  when using ali's pbsfiles
+#no: does sub pbs always add ./ even when already present in the root node name
+#ALIAS for sub pbs definitions
+#*/xxx regex doesn't match names starting at root
+#gtg_?? cluster the files depending on their source directories
+#-gtg_bd should not show bd if same as node name
+#works as expected, reverify: -create_node_path seems to be the default
+#-build_directory / gives error must start at root
+#was OK, modification vs acces time for files
+#-h should prevail on PBS_FLAGS
+#no_ignore_duplicate_dependency message
+#typo madatory
+
+#show pbs call depth when --dds
+
+#Cyclic dependency display
+
+# graph
+#graph: show nodes inserted by triggers
+#graph: handle multiple tree roots
+
+#CheckDependencyTree should return if error instead of dying so we can generate graph
+
+#Pbs shell script.
+
+#! can use --bi for that. -dt could take a regexp, multiple -dt
+#-dd could take a regexp, multiple -dd => -ddr
+#how do we run the same target in all the sub pbs without having multiple defined node names, name alias ?
+#was OK from the begining. what happends with /foo/1.c and /foo/bar/1.c
+#can we define a regular expression for sub pbs like: ./path/*.lib
+#node name should be ./node name, ./ added if needed
+# display_dependency_regex
+# added self referencial show error line
+#fixed:when adding a dependency check if the dependency is already a depenedency to the node
+#target root:node_name, builds dependency tree from root but only builds node_name (tested with sub pbs too)
+# -create_node_path, Verify the path for a node exists before calling it's builder
+#--dps add ## end of file for easier reading and file name  too
+#x... triggered on y, z, show if the node is virtual or forced.
+#in message, mixing Dependencies and undef, we should show the origin
+#switch to warn if no build directory is given
+# b-A-AO-BO order
+#--sd ./kfkfkfk
+
+# threadpool: Ithread sucks!
+
+# 2 pathes to PBSLib
+
+# !!!! Buuuug! handling dependencies as relative, full and xxx changes the insertion order
+
+# DefaultBuild returns build sequence if no building
+
+#remove arguments bd and sd as they are passed through the package_configuration
+
+#rename package_switches to package_configuration
+
+#change 'pwd' as we now use a cygwin perl.
+
+#-o shall not modify the rule name but add info somewhere that we can retrieve.
+
+#warn if 2 rules with same name
+#think about (*.o: *.c *.s)
+
+#object repository and salt.
+
+#in rules.pm fix $prefix = $1 || '' to use length instead.
+#use threads only if perl is compiled with threads
+#-be check if message is set before printing
+
+#overide PBS_FLAGS
+
+# \n when using -sc
+
+#-j8
+
+#C source depend
+
+#-D HUGIN = 1 => Config::PBS::CommandLineDefines
+
+!-ddrd 'name', what for ???
+#-dct isn't working ?
+
+
+#LD instead of config->{LD} if exists
+#$dependency_list to [shell_cmds]
+
+#lock config
+
+#typos allways locally origine
+#which config does a sub pbs use?
+#IGNORE_LOCAL_RULES
+#'main.o' : '*.c' => warning
+
+#handle [] Builder description
+
+#Shell exception ?????
+
+#Export OK and switch no_export_ok
+
+#-warning color 'yellow_on_black'
+
+#Skeleton depender, builder examples with arguments on one line please
+
+#Missing quote meta on dependent regex arg!!!
+
+#self referencial error display 0xArrays...
+
+#context and color for some display data
+
+#ancestor trim spaces
+#*.c:.h vs a.c:b.c
+
+#check local copy!
+#check why target are not build in the right order.
+
+Package in exe.
+#Local vs repository : if top level target builder not called copy file from the repository?
+
+#help for the make file
