@@ -1,12 +1,16 @@
 Revision history for PBS (Perl Build System).
 All changes by Nadim Khemir (NKH) except when otherwise stated.
 
-0.30
+0.31 Thu 30 Jun 2005
+	CHANGED: went from developer release to normal release or CPAN wouldn't index it!
+	
+
+0.30 Tue 28 Jun 2005
 	FIXED: Windows path error with new language simplified plugin
 	FIXED: -nge test
 	FIXED: Reduced image size in PNW presentation
 	CHANGED: licence
-	CHANGED SimpleRule plugin to be allow more general AddRule replacement
+	CHANGED SimpleRule plugin to allow more general AddRule replacement
 	CHANGED: completed Language/Simplified to find out that SimpleRule plugin is a better solution
 	ADDED: -display_wizard_info
 	ADDED: our $wizard_location which is set to the wizard path before it is evaluated

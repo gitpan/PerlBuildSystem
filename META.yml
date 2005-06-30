@@ -1,6 +1,6 @@
 ---
 name: PerlBuildSystem
-version: 0.30_1
+version: 0.31
 author:
   - Khemir Nadim ibn Hamouda. <nadim@khemir.net>
 abstract: ~
@@ -85,7 +85,7 @@ provides:
     version: 0.02
   PBS::FrontEnd:
     file: PBS/FrontEnd.pm
-    version: 0.30_1
+    version: 0.31
   PBS::Graph:
     file: PBS/Graph.pm
     version: 0.04
