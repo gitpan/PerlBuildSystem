@@ -16,12 +16,13 @@ my
 	, $inserted_nodes
 	, $dependencies         # rule local
 	, $builder_override     # rule local
+	, $rule_definition  # for introspection
 	) = @_ ;
 
 # Extra information for builders can be embedded in the node to build. Check "node subs"
 
 # nodes starting with '__' are private to pbs and should not be depended (ex virtual root)
-return($dependencies, $builder_override, $argument_override) if $dependent_to_check =~ /^__/ ;
+return($dependencies, $builder_override) if $dependent_to_check =~ /^__/ ;
 
 my $build_directory    = $tree->{__PBS_CONFIG}{BUILD_DIRECTORY} ;
 my $source_directories = $tree->{__PBS_CONFIG}{SOURCE_DIRECTORIES} ;

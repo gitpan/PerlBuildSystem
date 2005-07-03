@@ -123,7 +123,7 @@ for(my $rule_index = 0 ; $rule_index < @$dependency_rules ; $rule_index++)
 		$DB::single = 1 if(PBS::Debug::CheckBreakpoint(%debug_data, PRE => 1)) ;
 		}
 		
-	my ($dependency_result, $builder_override) = $depender->($node_name, $config, $tree, $inserted_nodes) ;
+	my ($dependency_result, $builder_override) = $depender->($node_name, $config, $tree, $inserted_nodes, $dependency_rules->[$rule_index]) ;
 	
 	my ($triggered, @dependencies ) = @$dependency_result ;
 	

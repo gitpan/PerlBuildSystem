@@ -180,28 +180,40 @@ if($pbs_config->{DISPLAY_NODE_BUILD_CAUSE} && @display_triggered_dependencies)
 
 # matching rules
 my @rules_with_builders ;
+my $builder_override ;
 	
 for my $rule (@{$file_tree->{__MATCHING_RULES}})
 	{
 	my $rule_number = $rule->{RULE}{INDEX} ;
 	my $dependencies_and_build_rules = $rule->{RULE}{DEFINITIONS} ;
 	
-	my $builder            = $dependencies_and_build_rules->[$rule_number]{BUILDER} ;
-	my $builder_override   = $rule->{RULE}{BUILDER_OVERRIDE} ;
+	my $builder       = $dependencies_and_build_rules->[$rule_number]{BUILDER} ;
+	$builder_override = $rule->{RULE}{BUILDER_OVERRIDE} ;
 	
 	#~ my $rule_dependencies = join ' ', map {$_->{NAME}} @{$rule->{DEPENDENCIES}} ;
 	
+	#~ my $creator ;
+	#~ for my $rule_type (@{$rule->{DEFINITION}{TYPE}})
+		#~ {
+		#~ $creator++ if(CREATOR eq $rule_type) ;
+		#~ }
+		
 	my $builder_override_tag ;
 	if(defined $builder_override)
 		{
 		if(defined $builder_override->{BUILDER})
 			{
 			$builder_override_tag = '[BO]' ;
-			push @rules_with_builders,
+			
+			my $rule_info =
 				{
 				  INDEX => $rule_number
 				, DEFINITION => $builder_override
 				} ;
+				
+			$rule_info->{OVERRIDES_OWN_BUILDER}++ if($builder);
+			
+			push @rules_with_builders, $rule_info ;
 			}
 		else
 			{
@@ -230,6 +242,7 @@ for my $rule (@{$file_tree->{__MATCHING_RULES}})
 	$rule_tag .= '[B]'  if defined $builder ;
 	$rule_tag .= '[BO]' if defined $builder_override ;
 	$rule_tag .= '[S]'  if defined $file_tree->{__INSERTED_AT}{NODE_SUBS} ;
+	#~ $rule_tag .= '[CREATOR]' if $creator;
 	
 	my $rule_info = $dependencies_and_build_rules->[$rule_number]{NAME}
 						. $dependencies_and_build_rules->[$rule_number]{ORIGIN} ;
@@ -303,18 +316,41 @@ if(@rules_with_builders)
 		
 	for my $rule (@rules_with_builders)
 		{
+		# display ovverride information
+		
+		my $rule_info =  $rule->{DEFINITION}{NAME}
+							. $rule->{DEFINITION}{ORIGIN} ;
+		
+		my $overriden_rule_info = '' ;
+		for my $overriden_rule_type (@{$rule->{DEFINITION}{TYPE}})
+			{
+			if(CREATOR eq $overriden_rule_type)
+				{
+				$overriden_rule_info .= '[CREATOR] ' ;
+				}
+			}
+			
+		# display if the rule generated a  builder override and had builder in its definition.
+		my $current_node_info = '' ;
+		
+		if($rule->{OVERRIDES_OWN_BUILDER} || $rule->{DEFINITION}{BUILDER} != $builder)
+			{
+			$current_node_info = $node_header if $no_output ; # force a header  when displaying a warning
+			}
+			
+		if($rule->{OVERRIDES_OWN_BUILDER})
+			{
+			$current_node_info .= WARNING ("\tRule Overrides its own builder: $overriden_rule_info#$rule->{INDEX} '$rule_info'.\n") ;
+			}
+			
 		if($rule->{DEFINITION}{BUILDER} != $builder)
 			{
-			my $rule_info =  $rule->{DEFINITION}{NAME}
-								. $rule->{DEFINITION}{ORIGIN} ;
-								
-			$current_node_info = '' ;
-			$current_node_info = $node_header if $no_output ; # force a header  when displaying a warning
-			$current_node_info .= WARNING ("\tIgnoring Builder from rule: #$rule->{INDEX} '$rule_info'.\n") ;
-			
-			$log_node_info    .= $current_node_info ;
-			$node_info        .= $current_node_info ;
+			# override from a rule to another
+			$current_node_info .= WARNING ("\tIgnoring Builder from rule: $overriden_rule_info#$rule->{INDEX} '$rule_info'.\n") ;
 			}
+			
+		$log_node_info    .= $current_node_info ;
+		$node_info        .= $current_node_info ;
 		}
 	}
 

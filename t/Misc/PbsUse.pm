@@ -43,6 +43,8 @@ _EOF_
     ExcludeFromDigestGeneration('in-files' => qr/\.in$/);
     AddRule 'intermediate', [ '*.intermediate' => '*.in' ] =>
 	'cat %DEPENDENCY_LIST > %FILE_TO_BUILD';
+	
+    1 ;
 _EOF_
     $t->write('file.in', 'file contents');
 

@@ -1,16 +1,16 @@
 
-use Inline Java => <<'END_OF_JAVA_CODE' ;
-class Pbsfile
-{
 
-public Pbsfile() {}
+#-------------------------------------------------------------------------------
 
-public void AddPbsConstructs()
-	{
-	}
-}   
-END_OF_JAVA_CODE
+ExcludeFromDigestGeneration('java-files' => qr/\.java$/);
 
-my $pbs = (__PACKAGE__ . "::Pbsfile")->new ;
+#-------------------------------------------------------------------------------
 
-$pbs->AddPbsConstructs() ;
+
+my @classes = qw(HelloWorld.class) ;
+
+AddRule [VIRTUAL], 'all', ['all' => @classes] => BuildOk() ;
+
+AddRule 'classes', ['*/*.class' => '*.java']
+    , 'javac -d %FILE_TO_BUILD_PATH %DEPENDENCY_LIST'; 
+

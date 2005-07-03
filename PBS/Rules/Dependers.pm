@@ -35,7 +35,7 @@ my %valid_types = map{ ("__$_", 1)} qw(UNTYPED VIRTUAL LOCAL FORCED POST_DEPEND 
 	
 sub GenerateDepender
 {
-my ($file_name, $line, $package, $class, $rule_types, $name, $depender_definition, $builder_sub) =  @_ ;
+my ($file_name, $line, $package, $class, $rule_types, $name, $depender_definition) =  @_ ;
 
 # this test is mainly to catch the error when the user forgot to write the rule name.
 for my $rule_type (@$rule_types)
@@ -87,7 +87,7 @@ sub GenerateDependerFromArray
 # $dependent_matcher matches the dependent
 # $dependencies_evaluator is to ,ie, replace $name by the node name ... it  is only called if the above sub matches.
 
-my ($file_name, $line, $package, $class, $rule_types, $name, $depender_definition, $builder_sub) = @_ ;
+my ($file_name, $line, $package, $class, $rule_types, $name, $depender_definition) = @_ ;
 
 unless(@$depender_definition)
 	{
@@ -101,7 +101,7 @@ my ($depender_sub, $node_subs) ;
 
 if(grep{ $_ eq META_RULE } @$rule_types)
 	{
-	($depender_sub, $node_subs) = GenerateMetaRule($file_name, $line, $package, $class, $rule_types, $name, $depender_definition, $builder_sub) ;
+	($depender_sub, $node_subs) = GenerateMetaRule($file_name, $line, $package, $class, $rule_types, $name, $depender_definition) ;
 	}
 else
 	{
@@ -245,6 +245,8 @@ else
 			my $tree           = shift ;
 			my $inserted_nodes = shift ;
 			
+			my $rule_definition = shift ; #usefull to display error messages
+			
 			my ($dependencies, $builder_override) ;
 			
 			if($dependent_matcher->($dependent, $config->{TARGET_PATH},  $tree->{__PBS_CONFIG}{DEBUG_DISPLAY_DEPENDENCY_REGEX}))
@@ -259,6 +261,7 @@ else
 											, $inserted_nodes
 											, $dependencies
 											, $builder_override
+											, $rule_definition
 											) ;
 					}
 					

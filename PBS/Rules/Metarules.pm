@@ -31,7 +31,7 @@ use PBS::Rules ;
 
 sub GenerateMetaRule
 {
-my ($file_name, $line, $package, $class, $rule_types, $name, $depender_definition, $builder_sub) = @_ ;
+my ($file_name, $line, $package, $class, $rule_types, $name, $depender_definition) = @_ ;
 
 if('ARRAY' eq ref $depender_definition && 'CODE' eq ref $depender_definition->[0] && 'ARRAY' eq ref $depender_definition->[1] && '' eq ref $depender_definition->[2])
 	{

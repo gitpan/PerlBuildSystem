@@ -18,6 +18,8 @@ use vars qw($VERSION @ISA @EXPORT) ;
 		PBSFILE
 		USER_BUILD_FUNCTION
 		
+		NEED_REBUILD
+		
 		DEPENDER
 		DEPENDER_FILE_NAME
 		DEPENDER_PACKAGE
@@ -65,6 +67,9 @@ use constant USER_BUILD_FUNCTION=> 1 ;
 use constant DEPENDER           => 1 ;
 use constant DEPENDER_FILE_NAME => 0 ;
 use constant DEPENDER_PACKAGE   => 1 ;
+
+# creator --------------------------------------------------------
+use constant NEED_REBUILD => 1 ;
 
 # rule types --------------------------------------------------------
 use constant UNTYPED            => '__UNTYPED' ;

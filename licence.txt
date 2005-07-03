@@ -31,7 +31,7 @@ You are forbiden to use B<PBS> if one of the following applies to you:
 
 =item * You work for (or are) an armement designer, constructor, producer, or saler.
 
--item * You, are part or, work for an entity that produces work or goods for any of the above.
+=item * You, are part or, work for an entity that directely produces work or goods for any of the above.
 
 =back
 

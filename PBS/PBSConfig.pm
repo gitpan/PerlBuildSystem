@@ -363,6 +363,11 @@ if(defined $pbs_config{DEBUG_DISPLAY_TREE_NODE_TRIGGERED_REASON})
 	$pbs_config{DEBUG_DISPLAY_TREE_NODE_TRIGGERED} = 1 ;
 	}
 
+if(defined $pbs_config{DEBUG_DISPLAY_TREE_NAME_ONLY})
+	{
+	$pbs_config{DEBUG_DISPLAY_TEXT_TREE} = '' unless $pbs_config{DEBUG_DISPLAY_TEXT_TREE} ;
+	}
+	
 if(defined $pbs_config{DISPLAY_TEXT_TREE_USE_ASCII})
 	{
 	$pbs_config{DISPLAY_TEXT_TREE_USE_ASCII} = 1 ;

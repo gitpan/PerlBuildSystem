@@ -13,6 +13,7 @@ PBS/Check.pm
 PBS/Cyclic.pm
 PBS/Config.pm
 PBS/Constants.pm
+PBS/Creator.pm
 PBS/DefaultBuild.pm
 PBS/Debug.pm
 PBS/Depend.pm
@@ -54,7 +55,7 @@ my $build = Module::Build->new
 	license => 'restrictive',
 	requires => 
 		{
-		Data::TreeDumper    => '0.20',
+		Bundle::TreeDumper  => '0.12',
 		Getopt::Long        => '2.32',
 		Cwd                 => '2.06',
 		Data::Dumper        => '2.12',
@@ -65,10 +66,10 @@ my $build = Module::Build->new
 		Devel::Depend::Cl   => '0.01',
 		Devel::Cycle        => '0',
 		File::MkTemp        => '0',
-		GraphViz            => '0',
-		Math::Pari          => '0',
-		Net::Telnet         => '0',
-		Net::SSH::Perl      => '0',
+		#GraphViz            => '0',
+		#Math::Pari          => '0',
+		#Net::Telnet         => '0',
+		#Net::SSH::Perl      => '0',
 		Pod::Simple::Search => '0',
 		Data::Compare       => '0',
 		Test::Class         => '0',

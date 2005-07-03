@@ -24,7 +24,7 @@ our @EXPORT = qw(
 						AddConfigVariableDependencies AddNodeConfigVariableDependencies
 						AddSwitchDependencies         AddNodeSwitchDependencies
 						
-						ExcludeFromDigestGeneration ForceDigestGeneration 
+						ExcludeFromDigestGeneration   ForceDigestGeneration 
 						GenerateNodeDigest
 						GetDigest
 						

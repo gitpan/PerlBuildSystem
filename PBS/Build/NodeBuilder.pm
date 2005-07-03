@@ -108,7 +108,7 @@ else
 # log the build
 if(defined (my $lh = $pbs_config->{CREATE_LOG}))
 	{
-	my $build_string = "Build result for $build_name : $build_result : $build_message\n" ;
+	my $build_string = "Build result for '$build_name' : $build_result : $build_message\n" ;
 	
 	if($build_result == BUILD_FAILED)
 		{
@@ -122,8 +122,13 @@ if(defined (my $lh = $pbs_config->{CREATE_LOG}))
 	
 if($build_result == BUILD_SUCCESS)
 	{
-	PBS::Digest::GenerateNodeDigest($file_tree) ;
+	eval { PBS::Digest::GenerateNodeDigest($file_tree) ; } ;
+		
+	($build_result, $build_message) = (BUILD_FAILED, 'Error Generating node digest.') if $@ ;
+	}
 	
+if($build_result == BUILD_SUCCESS)
+	{
 	# record MD5 while the file is still fresh in theOS  file cache
 	if(exists $file_tree->{__VIRTUAL})
 		{
@@ -137,10 +142,13 @@ if($build_result == BUILD_SUCCESS)
 			}
 		else
 			{
-			die ERROR("Can't open '$build_name' to compute MD5 digest: $!") ;
+			($build_result, $build_message) = (BUILD_FAILED, "Error Generating MD5 for '$build_name'.") ;
 			}
 		}
+	}
 	
+if($build_result == BUILD_SUCCESS)
+	{
 	if($pbs_config->{DISPLAY_BUILD_RESULT})
 		{
 		$build_message ||= '' ;

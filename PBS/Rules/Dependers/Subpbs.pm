@@ -26,8 +26,6 @@ use PBS::Output ;
 use PBS::Constants ;
 use PBS::Rules ;
 
-use PBS::Rules::Dependers::Simplified ; # for BuildDependentRegex
-
 #-------------------------------------------------------------------------------
 
 sub GenerateSubpbsDepender
@@ -126,6 +124,10 @@ return
 		my $dependent_to_check = shift ; 
 		my $config             = shift ;
 		my $tree               = shift ;
+		
+		# not used
+		#~ my $inserted_nodes = shift ;
+		#~ my $depender_definition = shift ; #usefull to display error messages
 		
 		if(defined $tree->{__PBS_CONFIG}{DEBUG_DISPLAY_DEPENDENCY_REGEX})
 			{

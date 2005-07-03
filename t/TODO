@@ -15,6 +15,10 @@ next version of pbs and its test suite shall not be dependent on the text output
 
 Failed tests should generate a manually runnable test
 
-^sub flag_nge doesn't work since simplified rules made it to plugins
+need test for creator
 
-^'0' ne '0' ???
+#^sub flag_nge doesn't work since simplified rules made it to plugins
+
+#^'0' ne '0' ???
+
+need test for own builder override display in information.pm

@@ -1,13 +1,21 @@
 Perl Build System
 =================
 
+? AR [x => y], BuilderAndCreator(\creator) ;
+
+Information.pm could reuse some function defined in NodeBuilder.pm
+
+#Should we ignore (or even warn) if  a rule with creator also has a builder?
+
+check if $C_dependencies_cache and $Creator_dependencies_cache shouldn't be flushed
+
 #wizard info and help
 
 Release
 	Batch::PBS
 	#Data::Dumper
 	#Devel::Depend::Cpp/Cl
-	PBS
+	#PBS
 
 The parsing and handling of the type of the rule should be left to perl	like we do with AddRule. 
 	=> SR[], => PR[] ...

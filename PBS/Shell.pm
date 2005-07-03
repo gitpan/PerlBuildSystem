@@ -84,7 +84,7 @@ for my $shell_command (@_)
 		
 			if($?)
 				{
-				print $output ;
+				print $output if $output;
 				
 				die bless
 					{

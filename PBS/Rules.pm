@@ -349,10 +349,50 @@ if(exists $package_rules{$package}{$class})
 		}
 	}
 
+#>>>>>>>>>>>>>
+# special handling for CREATOR TYPED rules
+# if a rule is [CREATOR] and no creator was defined in the depender definition,
+# we put a creator in the depender definition and give the builder as argument to the creator
+
+# this lets us write :
+# AddRule [CREATOR], [ 'a' =>' b'], 'touch %FILE_TO_BUILD' ;
+# and have the creator handle the digest part and call the builder to create the node
+
+for my $rule_type (@$rule_types)
+	{
+	if($rule_type eq CREATOR)
+		{
+		if('ARRAY' eq ref $depender_definition)
+			{
+			if('ARRAY' eq ref $depender_definition->[0])
+				{
+				die ERROR "[CREATOR] rules can't have a creator defined within depender!\n" ;
+				}
+				
+			if(defined $builder_definition)
+				{
+				#Let there be magic!
+				unshift @$depender_definition, [sub{ print 'hi'}, $builder_definition] ;
+				$builder_definition = undef ;
+				}
+			else
+				{
+				die ERROR "[CREATOR] rules must have a builder!\n" ;
+				}
+			}
+		else
+			{
+			die ERROR "[CREATOR] rules must have depender in form ['object_to_create => dependencies]!\n" ;
+			}
+		}
+	}
+#<<<<<<<<<<<<<<<<<<<<<<
+
 my ($builder_sub, $node_subs1, $builder_generated_types) = GenerateBuilder(undef, $builder_definition, $package, $name, $file_name, $line) ;
 $builder_generated_types ||= {} ;
 
-my ($depender_sub, $node_subs2, $depender_generated_types) = GenerateDepender($file_name, $line, $package, $class, $rule_types, $name, $depender_definition, $builder_sub) ;
+my ($depender_sub, $node_subs2, $depender_generated_types) = GenerateDepender($file_name, $line, $package, $class, $rule_types, $name, $depender_definition) ;
+$depender_generated_types  ||= [] ; 
 
 my $origin = '' ;
 if($pbs_config->{ADD_ORIGIN})
@@ -362,7 +402,9 @@ if($pbs_config->{ADD_ORIGIN})
 	
 my ($post_depend, $meta_slave, $creator) ;
 
-for my $rule_type (@$rule_types, @$depender_generated_types)
+@$rule_types = keys %{{map({($_, 1)} (@$rule_types, @$depender_generated_types))}} ;
+
+for my $rule_type (@$rule_types)
 	{
 	$creator++     if $rule_type eq CREATOR ;
 	$meta_slave++  if $rule_type eq META_SLAVE ;
@@ -435,11 +477,11 @@ if(defined $pbs_config->{DEBUG_DISPLAY_RULES})
 		
 	if('HASH' eq ref $depender_definition)
 		{
-		PrintInfo("Registering subpbs rule: $class_info $name$origin")  ;
+		PrintInfo("Registering subpbs rule: $class_info '$name$origin'.")  ;
 		}
 	else
 		{
-		PrintInfo("Registering rule: $class_info $name$origin")  ;
+		PrintInfo("Registering rule: $class_info '$name$origin'.")  ;
 		}
 		
 	PrintInfo(DumpTree($rule_definition)) if defined $pbs_config->{DEBUG_DISPLAY_RULE_DEFINITION} ;
@@ -447,6 +489,8 @@ if(defined $pbs_config->{DEBUG_DISPLAY_RULES})
 	}
 
 push @{$package_rules{$package}{$class}}, $rule_definition ;
+
+return($rule_definition) ;
 }
 
 #-------------------------------------------------------------------------------

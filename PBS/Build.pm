@@ -293,7 +293,7 @@ __END__
 
 =head1 NAME
 
-PBS::PBS  -
+PBS::Build  -
 
 =head1 SYNOPSIS
 

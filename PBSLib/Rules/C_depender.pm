@@ -332,7 +332,7 @@ if(-e $dependency_file_name)
 					{
 					if(defined $tree->{__PBS_CONFIG}{DISPLAY_C_DEPENDENCY_INFO})
 						{
-						PrintInfo("C_depender: '$file_to_depend' [difference]\n   [$dependency].\n") ;
+						PrintInfo("C_depender: '$file_to_depend' [difference]:\n   [$dependency].\n") ;
 						}
 						
 					$dependency_file_needs_update++ ;
@@ -633,7 +633,7 @@ if($depended)
 				}
 			else
 				{
-				PrintError("Can't compute dependency '$dependency' MD5 while generatin digest for '$file_to_depend'!\n") ;
+				PrintError("Can't compute dependency '$dependency' MD5 while generating digest for '$file_to_depend'!\n") ;
 				carp ;
 				die ;
 				}

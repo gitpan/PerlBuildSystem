@@ -290,11 +290,9 @@ if($run_in_warp_mode)
 					, $pbs_config, $warp_configuration
 					) ;
 				}
-			else
-				{
-				# died during depend or check
-				die $@ ;
-				}
+				
+			# died during depend or check
+			die $@ ;
 			}
 		else
 			{
@@ -316,7 +314,7 @@ if($run_in_warp_mode)
 else
 	{
 	#eurk hack we could dispense with!
-	# this is not needed but the subpses are traveses an extra time
+	# this is not needed but the subpses are travesed an extra time
 	
 	my ($dependency_tree_snapshot, $inserted_nodes_snapshot) ;
 	
@@ -366,7 +364,7 @@ else
 					, $pbs_config
 					) ;
 				}
-
+				
 			die $@ ;
 			}
 		else

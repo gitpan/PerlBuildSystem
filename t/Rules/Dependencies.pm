@@ -83,15 +83,13 @@ sub depender_sub : Test(2) {
 		$config,
 		$tree,
 		$inserted_nodes,
-		$dependencies,
-		$builder_override) = @_;
+		$depender_definition,
+		) = @_;
 	    
 	    if (! (defined($file) &&
 		   defined($config) &&
 		   defined($tree) &&
-		   defined($inserted_nodes) &&
-		   !defined($dependencies) &&
-		   !defined($builder_override))) {
+		   defined($inserted_nodes))) {
 		return ([0]);
 	    }
 	    
@@ -147,7 +145,8 @@ _EOF_
 
 # Build
     $t->build;
-	#    $t->generate_test_snapshot_and_exit();
+#~ $t->dump_stdout_stderr ;
+#~ $t->generate_test_snapshot_and_exit();
     isnt($?, 0, 'Exit status indicating error');
     my $stderr = $t->stderr;
     like($stderr, qr|\$undefined_variable : BUILD_FAILED : No matching rule\.\n|, 'Correct error message in output');

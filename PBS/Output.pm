@@ -214,7 +214,7 @@ if(defined $PBS::Output::query_on_warning)
 	}
 }
 
-sub PrintInfo 
+sub PrintInfo
 {
 print STDOUT INFO(@_) ;
 }

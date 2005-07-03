@@ -32,6 +32,7 @@ PBS/Check.pm
 PBS/Cyclic.pm
 PBS/Config.pm
 PBS/Constants.pm
+PBS/Creator.pm
 PBS/DefaultBuild.pm
 PBS/Debug.pm
 PBS/Depend.pm
@@ -70,6 +71,8 @@ doc/1/hello.c.depend
 doc/pbs_users_guide.pod
 doc/reference_manual.pod
 doc/PBS_short_introduction.pod
+doc/cookbook.pod
+doc/how_fast_is_it
 
 doc/pnw2004/README
 doc/pnw2004/a_pbs_slide.pod
@@ -116,7 +119,6 @@ PBSLib/Wizards/Distributor.pl
 PBSLib/Wizards/PostPbs.pl
 PBSLib/Wizards/Plugin.pl
 
-
 test/hello/Pbs.prf
 test/hello/Pbsfile.pl
 test/hello/world.c
@@ -142,9 +144,16 @@ Pbsfiles/test1/P2.pl
 Pbsfiles/test1/P3.pl
 Pbsfiles/test1/cyclic.pl
 
+Pbsfiles/creator/dependency_2_to_A
+Pbsfiles/creator/dependency_to_A
+Pbsfiles/creator/Pbsfile.pl
+
 Pbsfiles/user_build/user_build.pl
 
 Pbsfiles/java/Pbsfile.pl
+Pbsfiles/java/HelloWorld.java
+
+Pbsfiles/language_java/Pbsfile.pl
 
 Pbsfiles/language/Pbsfile.pl
 

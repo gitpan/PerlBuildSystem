@@ -1,6 +1,21 @@
 Revision history for PBS (Perl Build System).
 All changes by Nadim Khemir (NKH) except when otherwise stated.
 
+0.32 Sun 3 Jul 2005
+	FIXED: error with %FILE_TO_BUILD_PATH
+	FIXED: When command failed, undef output was displayed
+	ADDED: -tno sets -tt
+	ADDED: simple Creator template in wizards
+	CHANGED: The licence slightly
+	CHANGED: small changes to make Creator generation easier
+	FIXED: tests that declared PBS modules that didn't return 1
+	ADDED: ground for new [CREATOR] syntax and complete creator example in Pbsfiles/creator
+	CHANGED: Builder override information shows if the overriden builder rule was a creator
+	ADDED: display warning when using a builder override and having a builder definition
+	REMOVED: GraphViz, Math::Pari, Net::Telnet, Net::SSH::Perl from dependencies hopping for a smoother install
+	CHANGED: visualy better exception handling in Warp1_5
+	FIXED: the above change was just too good, we must let some exceptions go through sometimes ;)
+
 0.31 Thu 30 Jun 2005
 	CHANGED: went from developer release to normal release or CPAN wouldn't index it!
 	
