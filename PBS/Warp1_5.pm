@@ -151,13 +151,21 @@ if($run_in_warp_mode)
 				{
 				unless($current_md5 eq $nodes->{$node}{__MD5})
 					{
-					#~ PrintDebug "'$nodes->{$node}{__BUILD_NAME}' MD5 mismatch\n" ;
+					if($pbs_config->{DISPLAY_WARP_TRIGGERED_NODES})	
+						{
+						PrintDebug "\nWarp: '$nodes->{$node}{__BUILD_NAME}' MD5 mismatch\n" ;
+						}
+						
 					$remove_this_node++ ;
 					}
 				}
 			else
 				{
-				#~ PrintDebug "'$nodes->{$node}{__BUILD_NAME}' No such file $@\n" ;
+				if($pbs_config->{DISPLAY_WARP_TRIGGERED_NODES})	
+					{
+					PrintDebug "\nWarp: '$nodes->{$node}{__BUILD_NAME}' No such file $@\n" ;
+					}
+					
 				$remove_this_node++ ;
 				}
 			}
@@ -174,7 +182,10 @@ if($run_in_warp_mode)
 				
 				for my $node_to_remove (grep{ exists $nodes->{$_} } @nodes_to_remove)
 					{
-					#~ PrintDebug "Removing node '$node_to_remove'\n" ;
+					if($pbs_config->{DISPLAY_WARP_TRIGGERED_NODES})	
+						{
+						PrintDebug "Warp: Removing node '$node_to_remove'\n" ;
+						}
 					
 					push @dependent_nodes, grep{ exists $nodes->{$_} } map {$node_names->[$_]} @{$nodes->{$node_to_remove}{__DEPENDENT}} ;
 					
@@ -191,7 +202,11 @@ if($run_in_warp_mode)
 					$number_of_removed_nodes++ ;
 					}
 					
-				#~ PrintDebug '-' x 30 . "\n" ;
+				if($pbs_config->{DISPLAY_WARP_TRIGGERED_NODES})	
+					{
+					PrintDebug '-' x 30 . "\n" ;
+					}
+					
 				@nodes_to_remove = @dependent_nodes ;
 				}
 			}

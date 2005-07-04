@@ -1,5 +1,5 @@
-PBS/PBS version 0.32
-====================
+PBS/PBS version 
+===============
 
 B<PBS>/I<pbs.pl> is a build utility/module in the same spirit as  'make'.
 
@@ -23,7 +23,7 @@ I<pbs.pl> is a build utility which uses Perl exclusively for defining rules.
 
 If you have used 'make', I<pbs> should be easy to understand and use.
 
-This is a beta (an developper) release of I<pbs> but this software has been
+This is a beta (a developper) release of I<pbs> but this software has been
 used for three years and I use it right now in a very serious project which
 has 300 pbsfiles, 5000 nodes and 1.5 millions C code lines.
 

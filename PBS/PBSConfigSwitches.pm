@@ -988,6 +988,9 @@ EOT
 		, "When doing a warp build, linking info and local rule match info are disable. this switch re-enables them."
 		, ''
 		
+	, 'display_warp_triggered_nodes'  => \$pbs_config->{DISPLAY_WARP_TRIGGERED_NODES}
+		, "Display which nodes are removed from the warp tree and why."
+		, ''
 	#----------------------------------------------------------------------------------
 	
 	, 'post_pbs=s'                        => $pbs_config->{POST_PBS}
@@ -1046,9 +1049,21 @@ if(defined $Pbsfile && $Pbsfile ne '')
 	if($raw)
 		{
 		podselect({-sections => ['PBSFILE USER HELP']}, $Pbsfile) ;
+		
+		#~ open INPUT, '<', $Pbsfile or die ERROR "Can't open '$Pbsfile'!\n" ;
+		#~ open my $out, '>', \my $textified_pod or die "Can't redirect to scalar output: $!\n";
+		#~ my $parser = new Pod::Select();
+		#~ $parser->parse_from_filehandle(\*INPUT, $out);
+		
+		#~ my $matched ;
+		#~ $textified_pod =~ s/=head1 End of PBSFILE USER HELP!.*\n//g ;
+		#~ $textified_pod =~ s/(=head1 PBSFILE USER HELP.*\n)/if($matched){""}else{$matched++ ;$1}/ge ;
+		
+		#~ print $textified_pod ;
 		}
 	else
 		{
+		#$parser->parse_from_filehandle
 		podselect({-output => "$Pbsfile.help.raw", -sections => ['PBSFILE USER HELP']}, $Pbsfile) ;
 		Pod::Text->new (alt => 1, sentence => 0, width => 78)->parse_from_file ("$Pbsfile.help.raw") ;
 		

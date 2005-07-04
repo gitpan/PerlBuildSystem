@@ -29,6 +29,8 @@ use PBS::PostBuild ;
 use PBS::Plugin;
 
 #-------------------------------------------------------------------------------
+# July 2005, try to figure out how to implement micro warps
+our %used_pbsfiles ;
 
 sub CreateDependencyTree
 {
@@ -790,6 +792,13 @@ if(0 == $has_dependencies)
 		my $already_inserted_nodes = $inserted_nodes ;
 		$already_inserted_nodes    = {} if(defined $sub_pbs_hash->{LOCAL_NODES}) ;
 		
+		unless(exists $used_pbsfiles{$sub_pbs_name})
+			{
+			$used_pbsfiles{$sub_pbs_name} = {} ;
+			#~ $sbpbs_dependencies{$sub_pbs_name} = $used_pbsfiles{$sub_pbs_name} ;
+			}
+			
+		$used_pbsfiles{$Pbsfile}{$sub_pbs_name} = $used_pbsfiles{$sub_pbs_name} ;
 		
 		my $sub_tree = PBS::PBS::Pbs
 						(

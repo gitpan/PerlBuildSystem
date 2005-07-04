@@ -28,7 +28,8 @@ use PBS::Shell ;
 use PBS::PBSConfig ;
 use PBS::Output ;
 use PBS::Constants ;
-use PBS::Plugin;
+use PBS::Plugin ;
+use PBS::Creator ;
 
 use base qw(PBS::Attributes) ;
 
@@ -349,8 +350,14 @@ if(exists $package_rules{$package}{$class})
 		}
 	}
 
+my %rule_type ;
+for my $rule_type (@$rule_types)
+	{
+	$rule_type{$rule_type}++
+	}
+
 #>>>>>>>>>>>>>
-# special handling for CREATOR TYPED rules
+# special handling for CREATOR  rules
 # if a rule is [CREATOR] and no creator was defined in the depender definition,
 # we put a creator in the depender definition and give the builder as argument to the creator
 
@@ -358,32 +365,29 @@ if(exists $package_rules{$package}{$class})
 # AddRule [CREATOR], [ 'a' =>' b'], 'touch %FILE_TO_BUILD' ;
 # and have the creator handle the digest part and call the builder to create the node
 
-for my $rule_type (@$rule_types)
+if($rule_type{__CREATOR})
 	{
-	if($rule_type eq CREATOR)
+	if('ARRAY' eq ref $depender_definition)
 		{
-		if('ARRAY' eq ref $depender_definition)
+		if('ARRAY' eq ref $depender_definition->[0])
 			{
-			if('ARRAY' eq ref $depender_definition->[0])
-				{
-				die ERROR "[CREATOR] rules can't have a creator defined within depender!\n" ;
-				}
-				
-			if(defined $builder_definition)
-				{
-				#Let there be magic!
-				unshift @$depender_definition, [sub{ print 'hi'}, $builder_definition] ;
-				$builder_definition = undef ;
-				}
-			else
-				{
-				die ERROR "[CREATOR] rules must have a builder!\n" ;
-				}
+			die ERROR "[CREATOR] rules can't have a creator defined within depender!\n" ;
+			}
+			
+		if(defined $builder_definition)
+			{
+			#Let there be magic!
+			unshift @$depender_definition, [GenerateCreator($builder_definition)] ;
+			$builder_definition = undef ;
 			}
 		else
 			{
-			die ERROR "[CREATOR] rules must have depender in form ['object_to_create => dependencies]!\n" ;
+			die ERROR "[CREATOR] rules must have a builder!\n" ;
 			}
+		}
+	else
+		{
+		die ERROR "[CREATOR] rules must have depender in form ['object_to_create => dependencies]!\n" ;
 		}
 	}
 #<<<<<<<<<<<<<<<<<<<<<<
@@ -395,25 +399,30 @@ my ($depender_sub, $node_subs2, $depender_generated_types) = GenerateDepender($f
 $depender_generated_types  ||= [] ; 
 
 my $origin = '' ;
-if($pbs_config->{ADD_ORIGIN})
-	{
-	$origin = ":$package:$class:$file_name:$line" ;
-	}
+$origin = ":$package:$class:$file_name:$line"  if($pbs_config->{ADD_ORIGIN}) ;
 	
-my ($post_depend, $meta_slave, $creator) ;
-
-@$rule_types = keys %{{map({($_, 1)} (@$rule_types, @$depender_generated_types))}} ;
-
 for my $rule_type (@$rule_types)
 	{
-	$creator++     if $rule_type eq CREATOR ;
-	$meta_slave++  if $rule_type eq META_SLAVE ;
-	$post_depend++ if $rule_type eq POST_DEPEND ;
+	$rule_type{$rule_type}++
+	}
+	
+if($rule_type{__VIRTUAL} && $rule_type{__LOCAL})
+	{
+	PrintError("Rule can't be 'VIRTUAL' and 'LOCAL'.") ;
+	PbsDisplayErrorWithContext($file_name,$line) ;
+	die ;
+	}
+	
+if($rule_type{__POST_DEPEND} && $rule_type{__CREATOR})
+	{
+	PrintError("Rule can't be 'POST_DEPEND' and 'CREATOR'.") ;
+	PbsDisplayErrorWithContext($file_name,$line) ;
+	die ;
 	}
 
-if($post_depend && $creator)
+if($rule_type{__VIRTUAL} && $rule_type{__CREATOR})
 	{
-	Carp::carp ERROR("Rule can't be 'POST_DEPEND' and define a creator.") ;
+	PrintError("Rule can't be 'VIRTUAL' and 'CREATOR'.") ;
 	PbsDisplayErrorWithContext($file_name,$line) ;
 	die ;
 	}
@@ -470,9 +479,9 @@ $rule_definition->{NODE_SUBS} = $node_subs if @$node_subs ;
 if(defined $pbs_config->{DEBUG_DISPLAY_RULES})
 	{
 	my $class_info = "[$class" ;
-	$class_info .= ' (POST_DEPEND)' if $post_depend ;
-	$class_info .= ' (META_SLAVE)' if $meta_slave ;
-	$class_info .= ' (CREATOR)' if $creator ;
+	$class_info .= ' (POST_DEPEND)' if $rule_type{POST_DEPEND} ;
+	$class_info .= ' (META_SLAVE)'  if $rule_type{META_SLAVE} ;
+	$class_info .= ' (CREATOR)'     if $rule_type{CREATOR};
 	$class_info .= ']' ;
 		
 	if('HASH' eq ref $depender_definition)

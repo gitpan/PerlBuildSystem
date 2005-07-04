@@ -1,22 +1,23 @@
 ---
 name: PerlBuildSystem
-version: 0.32
+version: 0.33
 author:
   - Khemir Nadim ibn Hamouda. <nadim@khemir.net>
 abstract: ~
 license: restrictive
 requires:
-  Bundle::TreeDumper: 0.12
   Cwd: 2.06
   Data::Compare: 0
   Data::Dumper: 2.12
+  Data::TreeDumper: 0.24
   Devel::Cycle: 0
   Devel::Depend::Cl: 0.01
   Devel::Depend::Cpp: 0.05
   File::Basename: 2.71
   File::Copy::Recursive: 0
   File::MkTemp: 0
-  File::Spec: ''
+  File::Slurp: 0
+  File::Spec: 0
   Getopt::Long: 2.32
   Pod::Simple::Search: 0
   Term::ProgressBar: 0
@@ -84,7 +85,7 @@ provides:
     version: 0.02
   PBS::FrontEnd:
     file: PBS/FrontEnd.pm
-    version: 0.32
+    version: 0.33
   PBS::Graph:
     file: PBS/Graph.pm
     version: 0.04

@@ -1,0 +1,56 @@
+PBS INSTALL
+===========
+
+Installing PBS takes time!
+
+This is the first module of this size we prepare and the first where we try to 
+support windows as well as linux. Please be patient and give us feedback so we
+can make the installation easier.
+
+The system is teted on linux and windows. I believe it should work on cygwin but
+I did not check that. I have heard of a user who is trying it on BSD.
+
+We are 4 engineers using PBS everyday for our work on windows and linux so this
+is possible to install ;)
+
+Let' us know how easy it went for you so we can help the other users.
+
+Installing on linux:
+====================
+
+This is my develipment OS and it's mostly teted on linux too.
+
+PBS use Module::Build which is supported by 'cpanp'. Unfortunately not all
+modules install smoothly in 'cpanp'. I have just installed on a fresh gentoo box
+It took me 2 hours to install.
+
+I recommend installing 'cpanp' and trying to install from there. If some modules
+don't install, try installing them in 'cpan' or emerge/urpme.
+
+I got it faily easy to install with version 0.32. It still failed some test due
+to a Graph.pm dependency that wouldn't install.
+
+If everything fails (or just some) drop me a line and I'll try to get you up and
+running.
+
+
+Manual install:
+===============
+
+download the module
+tar xzf PerlBuildSystem-version.tgz
+perl Build.PL
+./Build test
+sudo ./Build install
+
+Install the missing modules with cpan. This works OK but takes time.
+
+Installing on windows:
+======================
+
+You are a bit out of luck as the install is more difficult and the run time is
+higher as windows file caching is rather bad (as is the network layer).
+
+... more to be addded when NKH has seen EJ do the install on windows
+
+

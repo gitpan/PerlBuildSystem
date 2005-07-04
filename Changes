@@ -1,6 +1,14 @@
 Revision history for PBS (Perl Build System).
 All changes by Nadim Khemir (NKH) except when otherwise stated.
 
+0.33  Jul 2005
+	ADDED: DISPLAY_WARP_TRIGGERED_NODES
+	CHANGED: ask pre-requisit D:TD instead for Bundle::TD
+	FIXED: some POD typos and an install problem thanks to Mike Castle
+	ADDED: an INSTALL file
+	ADDED: [CREATOR] for simple creators
+	FIXED: for the tenth time, converted from dos to unix file format
+
 0.32 Sun 3 Jul 2005
 	FIXED: error with %FILE_TO_BUILD_PATH
 	FIXED: When command failed, undef output was displayed

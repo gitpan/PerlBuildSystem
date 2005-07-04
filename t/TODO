@@ -22,3 +22,12 @@ need test for creator
 #^'0' ne '0' ???
 
 need test for own builder override display in information.pm
+
+add test for creator
+
+add test for:
+	if($rule_type{__VIRTUAL} && $rule_type{__LOCAL})
+	if($rule_type{__POST_DEPEND} && $rule_type{__CREATOR})
+	if($rule_type{__VIRTUAL} && $rule_type{__CREATOR})
+
+test for -gtg only if graphviz is installed

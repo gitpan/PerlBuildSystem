@@ -1,8 +1,20 @@
 Perl Build System
 =================
 
-? AR [x => y], BuilderAndCreator(\creator) ;
+Remove spurious PBSFILE HELP for -hu -hur output
 
+Add creator for C files
+
+#Check if CREATOR can be mixed with other rule types
+	#=> including CREATOR multiple times
+
+extra arguments to depender should be passed as a ref to @
+
+Test for -gtg only if graphviz is installed
+
+#? AR [x => y], BuilderAndCreator(\creator) ;
+	=> AR [CREATOR], 'name', ['A' => 'B4], "touch %FILE_TO_BUILD" ;
+	
 Information.pm could reuse some function defined in NodeBuilder.pm
 
 #Should we ignore (or even warn) if  a rule with creator also has a builder?
@@ -40,7 +52,7 @@ We need a unified way to present output, whatever mode we are running in
 C_Depender and warp 1.5 dewarpifier could be the same code
 
 _warp 1.5 doesn't rebuild the ancestor tree
-	=> OK, warp is not made  for searching, only be fast
+	=> OK, warp is not made for searching, only be fast
 
 ^ C dependencies cache doesn't rebuild ancestors properly
 

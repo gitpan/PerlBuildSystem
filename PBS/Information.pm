@@ -435,7 +435,7 @@ PBS::Information  -
 
 =head1 SYNOPSIS
 
-  use PBS::Informatiion ;
+  use PBS::Information ;
   DisplayNodeInformation($node, $pbs_config) ;
 
 =head1 DESCRIPTION

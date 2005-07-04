@@ -1,9 +1,10 @@
-Changes
-MANIFEST
 Build.PL
+Changes
+INSTALL
+MANIFEST
+META.yml
 README
 Todo.txt
-META.yml
 
 pbs.pl
 pbs_test.pl
@@ -156,6 +157,8 @@ Pbsfiles/java/HelloWorld.java
 Pbsfiles/language_java/Pbsfile.pl
 
 Pbsfiles/language/Pbsfile.pl
+
+Pbsfiles/micro_warp/Pbsfile.pl
 
 Pbsfiles/locate_or_local/Pbsfile.pl
 Pbsfiles/locate_or_local/trigger.pl

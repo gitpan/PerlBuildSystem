@@ -536,7 +536,7 @@ PBS::Debug  - debugger support for PBS
 
 =head1 SYNOPSIS
 
-	use PBS::Debugger ;
+	use PBS::Debug ;
 	
 	AddBreakpoint
 		(

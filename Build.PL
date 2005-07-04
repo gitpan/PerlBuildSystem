@@ -55,7 +55,7 @@ my $build = Module::Build->new
 	license => 'restrictive',
 	requires => 
 		{
-		Bundle::TreeDumper  => '0.12',
+		Data::TreeDumper    => '0.24',
 		Getopt::Long        => '2.32',
 		Cwd                 => '2.06',
 		Data::Dumper        => '2.12',
@@ -66,17 +66,19 @@ my $build = Module::Build->new
 		Devel::Depend::Cl   => '0.01',
 		Devel::Cycle        => '0',
 		File::MkTemp        => '0',
-		#GraphViz            => '0',
-		#Math::Pari          => '0',
-		#Net::Telnet         => '0',
-		#Net::SSH::Perl      => '0',
 		Pod::Simple::Search => '0',
 		Data::Compare       => '0',
 		Test::Class         => '0',
 		Test::Cmd           => '0',
 		Term::ProgressBar   => '0',
+		File::Spec          => '0',
+		File::Slurp         => '0',
 		File::Copy::Recursive => '0',
-		File::Spec          => '',
+		
+		#GraphViz            => '0',
+		#Math::Pari          => '0',
+		#Net::Telnet         => '0',
+		#Net::SSH::Perl      => '0',
 		
 		#Term::ANSIColor => ?
 		#Text::Balanced => ?
