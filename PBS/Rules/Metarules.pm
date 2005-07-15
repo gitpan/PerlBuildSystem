@@ -1,4 +1,3 @@
-
 package PBS::Rules::Metarules ;
 
 use PBS::Debug ;
@@ -145,7 +144,7 @@ else
 __END__
 =head1 NAME
 
-PBS::Rules::Metarules-
+PBS::Rules::Metarules -
 
 =head1 DESCRIPTION
 

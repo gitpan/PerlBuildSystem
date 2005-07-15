@@ -1,5 +1,5 @@
 
-package PBS::Creator;
+package PBS::Rules::Creator;
 
 use 5.006 ;
 
@@ -462,7 +462,7 @@ return($rule) ;
 __END__
 =head1 NAME
 
-PBS::Creator - Helps with creator generation
+PBS::Rules::Creator - Helps with creator generation
 
 =head1 SYNOPSIS
 

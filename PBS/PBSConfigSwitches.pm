@@ -152,12 +152,42 @@ my @flags_and_help =
 		, 'Writes the flag name and its explanation on separate lines.'
 		, ''
 
-	, 'hu|help_user'                    => \$pbs_config->{DISPLAY_USER_HELP}
+	, 'pp|pbsfile_pod'                    => \$pbs_config->{DISPLAY_PBSFILE_POD}
 		, "Displays a user defined help. See 'Online help' in pbs.pod"
-		, ''
+		, <<'EOH'
+=for PBS =head1 SOME TITLE
+
+this is extracted by the --pbsfile_pod command
+
+the format is /^for PBS =pod_formating title$/
+
+=cut 
+
+# some code
+
+=head1 NORMAL POD DOCUMENTATION
+
+this is extracted by the --pbs2pod command
+
+=cut
+
+# more stuff
+
+=for PBS =head1 SOME TITLE\n"
+
+this is extracted by the --pbsfile_pod command and added to the
+previous =for PBS section
+
+=cut 
+
+EOH
 		
-	, 'hur|help_user_raw'               => \$pbs_config->{DISPLAY_RAW_USER_HELP}
-		, 'Displays a user defined help.'
+	, 'pbs2pod'                         => \$pbs_config->{PBS2POD}
+		, 'Extracts the pod contained in the Pbsfile (except user documentation POD).'
+		, 'See --pbsfile_pod.'
+		
+	, 'raw_pod'                         => \$pbs_config->{RAW_POD}
+		, '-pbsfile_pod or -pbs2pod is dumped in raw pod format.'
 		, ''
 		
 	, 'd|display_pod_documenation:s'     => \$pbs_config->{DISPLAY_POD_DOCUMENTATION}
@@ -569,16 +599,24 @@ EOT
 		
 	, 'dac|display_all_configs'         => \$pbs_config->{DEBUG_DISPLAY_ALL_CONFIGURATIONS}
 		, '(DF). Display all registred configs and how they are build.'
-		
 		, ''
+		
 	, 'display_non_existing_config_variable'         => \$pbs_config->{DISPLAY_NON_EXISTING_CONFIG_VARIABLE}
 		, 'Emit a warning if a non existing config variable is queried.'
-		
 		, ''
+		
+	, 'display_subpbs_search_info'         => \$pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO}
+		, 'Display information about how the subpbs files are found.'
+		, ''
+		
+	, 'display_all_subpbs_alternatives'         => \$pbs_config->{DISPLAY_ALL_SUBPBS_ALTERNATIVES}
+		, 'Display all the subpbs files that could match.'
+		, ''
+		
 	, 'dsd|display_source_directory'    => \$pbs_config->{DISPLAY_SOURCE_DIRECTORIES}
 		, 'display all the source directories (given through the -sd switch ot the Pebsfile).'
-		
 		, ''
+		
 	, 'display_search_info'         => \$pbs_config->{DISPLAY_SEARCH_INFO}
 		, 'Display the files searched in the source directories. See --daa.'
 		, <<EOT
@@ -744,6 +782,10 @@ EOT
 		
 	, 'tno|tree_name_only'               => \$pbs_config->{DEBUG_DISPLAY_TREE_NAME_ONLY}
 		, '(DF) Display the name of the nodes only.'
+		, ''
+		
+	, 'tda|tree_depended_at'               => \$pbs_config->{DEBUG_DISPLAY_TREE_DEPENDED_AT}
+		, '(DF) Display which Pbsfile was used to depend each node.'
 		, ''
 		
 	, 'tnd|tree_display_no_dependencies'        => \$pbs_config->{DEBUG_DISPLAY_TREE_NO_DEPENDENCIES}
@@ -988,9 +1030,13 @@ EOT
 		, "When doing a warp build, linking info and local rule match info are disable. this switch re-enables them."
 		, ''
 		
+	, 'display_warp_checked_nodes'  => \$pbs_config->{DISPLAY_WARP_CHECKED_NODES}
+			, "Display which nodes are contained in the warp tree."
+			, ''
+			
 	, 'display_warp_triggered_nodes'  => \$pbs_config->{DISPLAY_WARP_TRIGGERED_NODES}
-		, "Display which nodes are removed from the warp tree and why."
-		, ''
+			, "Display which nodes are removed from the warp tree and why."
+			, ''
 	#----------------------------------------------------------------------------------
 	
 	, 'post_pbs=s'                        => $pbs_config->{POST_PBS}
@@ -1039,6 +1085,7 @@ print(ERROR("Unrecognized switch '$switch'.\n")) unless $help_was_displayed ;
 sub DisplayUserHelp
 {
 my $Pbsfile = shift ;
+my $display_pbs_pod = shift ;
 my $raw = shift ;
 
 eval "use Pod::Select ; use Pod::Text;" ;
@@ -1046,28 +1093,54 @@ die $@ if $@ ;
 
 if(defined $Pbsfile && $Pbsfile ne '')
 	{
+	open INPUT, '<', $Pbsfile or die "Can't open '$Pbsfile'!\n" ;
+	open my $out, '>', \my $all_pod or die "Can't redirect to scalar output: $!\n";
+	
+	my $parser = new Pod::Select();
+	$parser->parse_from_filehandle(\*INPUT, $out);
+	
+	$all_pod .= '=cut' ; #add the =cut taken away by above parsing
+	
+	my ($pbs_pod, $other_pod) = ('', '') ;
+	my $pbs_pod_level = 1_000_000 ;  #invalid level
+	
+	while($all_pod =~ /(^=.*?(?=\n=))/smg)
+		{
+		my $section = $1 ;
+		
+		my $section_level = $1 if($section =~ /=head([0-9])/) ;
+		$section_level ||= 1_000_000 ;
+		
+		if($section =~ s/^=for PBS STOP\s*//i)
+			{
+			$pbs_pod_level = 1_000_000 ;
+			next ;
+			}
+				
+		if(($pbs_pod_level && $pbs_pod_level < $section_level) || $section =~ /^=for PBS/i)
+			{
+			$pbs_pod_level = $section_level < $pbs_pod_level ? $section_level : $pbs_pod_level ;
+			
+			$section =~ s/^=for PBS\s*//i ;
+			$pbs_pod .= $section . "\n" ;
+			}
+		else
+			{
+			$pbs_pod_level = 1_000_000 ;
+			$other_pod .= $section . "\n" ;
+			}
+		}
+		
+	my $pod = $display_pbs_pod ? $pbs_pod : $other_pod ;
+	
 	if($raw)
 		{
-		podselect({-sections => ['PBSFILE USER HELP']}, $Pbsfile) ;
-		
-		#~ open INPUT, '<', $Pbsfile or die ERROR "Can't open '$Pbsfile'!\n" ;
-		#~ open my $out, '>', \my $textified_pod or die "Can't redirect to scalar output: $!\n";
-		#~ my $parser = new Pod::Select();
-		#~ $parser->parse_from_filehandle(\*INPUT, $out);
-		
-		#~ my $matched ;
-		#~ $textified_pod =~ s/=head1 End of PBSFILE USER HELP!.*\n//g ;
-		#~ $textified_pod =~ s/(=head1 PBSFILE USER HELP.*\n)/if($matched){""}else{$matched++ ;$1}/ge ;
-		
-		#~ print $textified_pod ;
+		print $pod ;
 		}
 	else
 		{
-		#$parser->parse_from_filehandle
-		podselect({-output => "$Pbsfile.help.raw", -sections => ['PBSFILE USER HELP']}, $Pbsfile) ;
-		Pod::Text->new (alt => 1, sentence => 0, width => 78)->parse_from_file ("$Pbsfile.help.raw") ;
-		
-		unlink("$Pbsfile.help.raw") ;
+		open my $input, '<', \$pod or die "Can't redirect from scalar input: $!\n";
+		Pod::Text->new (alt => 1, sentence => 0, width => 78)->parse_from_file ($input) ;
 		}
 	}
 else

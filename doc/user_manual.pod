@@ -1,0 +1,84 @@
+=pod
+
+=head1 PerlBuildSystem User's Manual
+
+=head2 What is PBS?
+
+PBS is PerlBuildSystem, a powerful tool for making correct and intelligent build systems
+without the pain, failure and insanity such activities would entail had they been attempted with
+I<make(1)>. Rather than a simplistic rule-based build engine, PBS is a meta build system
+-- a Perl API for writing build systems if you like.
+
+One of the biggest limitations with I<make> is that it completely lacks any sensible programming
+constructs, while users always end up needing them. All it has, save a bunch of ad hoc loops
+and primitive string manipulation functions, is global variables and a simplistic rule engine.
+
+PBS is also rule based, but contrary to a Makefile, a Pbsfile is an executable Perl script.
+This means your Pbsfile has the entire power of the Perl language in its hands, making it easy
+for you to write library modules with high-level functions for your most common tasks and generally
+let you do whatever it is you need to do. The interface PBS offers you for making a build system,
+while powerful, really revolves around three quite simple to use build system commands, plus a few
+convenience functions for helping you with the most common tasks.
+
+=head2 PBS Concepts
+First of all, PBS is really a Perl API, so knowing a bit of Perl will help.
+But don't be intimidated by this if you don't -- you can write Pbsfiles
+using the rule syntax of PBS without knowing you're really writing Perl,
+and it's quite simple too!
+
+Contrary to most versions of I<make>, PBS has I<no> builtin rules. It does however come with a fairly
+advanced library module for figuring out the dependencies of C and C++ files and concluding that an
+object file should probably be built from either a C, C++ or an assembly language source file. But this
+is just an addon (albeit very convenient). If you want to use it you have to say so. PBS doesn't force
+it down your throat. For a more detailed rant about the shortcomings of I<make>, see
+<a href="http://blah.blah.blah/PBS/">The PerlBuildSystem Homepage</a>. Now, on with the show.
+
+In order to support powerful distributed and parallell build systems, PBS is a three stage rocket.
+It goes through three distinct stages while building your system:
+
+=over 2
+
+=item * Depend. During this stage, PBS builds a I<complete> dependency tree of the I<entire> system.
+Nodes are inserted into the dependency tree by running I<all> your rules until no new dependencies are
+generated.
+=item * Check, during which PBS figures out what physical files the nodes in the dependency tree
+correspond to, and verifies whether they are up to date or not.
+=item * Build, the process of rebuilding and checksumming any nodes that were for some reason deemed
+out of date during the Check stage.
+
+=back
+
+PBS considers a node out of date if any of the following hold:
+
+=over 2
+
+=item 1. The node doesn't exist.
+=item 2. The node exists, wasn't excluded from digest generation, but doesn't have a stored digest to prove
+it is up to date.
+=item 3. The node exists, and has a stored digest that differs from the digest computed from the node itself.
+=item 4. The node has a dependency that was deemed out of date.
+=back
+
+If a node doesn't exist, it obviously needs to be built. For the rest, it's time we introduce some PBS
+vocabulary:
+
+=over 2
+
+=item * Target. This is what you tell PBS to build when you start it. It is the first thing PBS will
+try to match against your rules to see if it can infer any dependencies, which brings us to...
+=item * Dependency. A thingy, typically I<but not necessarily> a file, that the dependent depends on.
+I<Make> calls these I<sources>.
+=item * Dependent. The thingy that has dependencies. I<Make> calls this I<target>, too -- at least
+while trying to figure out if it is up to date or not.
+=item * Node. Something that appears in the dependency tree. Everything in the dependency tree is a
+dependency of some dependent, and most have dependencies of their own -- even the target, which is
+logically a dependency of the invocation of PBS.
+=item * Digest. A cryptographic hash (MD5) checksum of all the thingies that affect whether or not a
+node is up to date, including the contents of the file corresponding to the node itself.
+=item * Digest generation. PBS wants a digest for every node it finds, and generates a digest for
+everything that gets built.
+=item * Trigger. The act of marking a node as out of date. When a node is triggered, 
+=back
+
+=cut
+

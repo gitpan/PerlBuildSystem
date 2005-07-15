@@ -11,6 +11,7 @@ use Data::Dumper ;
 use Data::TreeDumper ;
 use Time::HiRes ;
 use Tie::Hash::Indexed ;
+use File::Basename ;
 
 require Exporter ;
 use AutoLoader qw(AUTOLOAD) ;
@@ -36,7 +37,7 @@ sub CreateDependencyTree
 {
 my $Pbsfile          = shift ;
 my $package_alias    = shift ;
-my $load_package     = shift ;
+my $load_package     = PBS::PBS::CanonizePackageName(shift) ;
 my $pbs_config       = shift ;
 my $tree             = shift ;
 my $config           = shift ; 
@@ -178,7 +179,11 @@ for(my $rule_index = 0 ; $rule_index < @$dependency_rules ; $rule_index++)
 		if(@dependencies && 'HASH' eq ref $dependencies[0])
 			{
 			$dependencies[0]{__RULE_NAME} = $dependency_rules->[$rule_index]{NAME} ;
-			push @sub_pbs, $dependencies[0] ;
+			push @sub_pbs, 
+				{
+				  SUBPBS => $dependencies[0]
+				, RULE   => $dependency_rules->[$rule_index]
+				} ;
 			
 			if($pbs_config->{DEBUG_DISPLAY_DEPENDENCIES} && $node_name_matches_ddr)
 				{
@@ -378,7 +383,7 @@ if(@sub_pbs)
 	{
 	if(@sub_pbs == 1)
 		{
-		if(@dependencies && exists $sub_pbs[0]->{IGNORE_LOCAL_RULES} && $sub_pbs[0]->{IGNORE_LOCAL_RULES} > 0)
+		if(@dependencies && exists $sub_pbs[0]{SUBPBS}{IGNORE_LOCAL_RULES} && $sub_pbs[0]{SUBPBS}{IGNORE_LOCAL_RULES} > 0)
 			{
 			PrintWarning
 				(
@@ -699,59 +704,21 @@ if(0 == $has_dependencies)
 			
 		# the node had no dependencie but a single subpbs matched
 		
-		my $sub_pbs_hash    = $sub_pbs[0] ;
+		my $sub_pbs_hash    = $sub_pbs[0]{SUBPBS} ;
 		my $sub_pbs_name    = $sub_pbs_hash->{PBSFILE} ;
 		my $sub_pbs_package = $sub_pbs_hash->{PACKAGE} ;
 		
 		my $alias_message = '' ;
 		$alias_message = "aliased as '$sub_pbs_hash->{ALIAS}'" if(defined $sub_pbs_hash->{ALIAS}) ;
 		
-		my $source_directories = $pbs_config->{SOURCE_DIRECTORIES} ;
-		my $sub_pbs_name_stem ;
+		#July 2005 code that generate warning when Pbsfile location is changed
+		$sub_pbs_name = LocatePbsfile($pbs_config, $Pbsfile, $sub_pbs_name) ;
 		
-		if(File::Spec->file_name_is_absolute($sub_pbs_name))
-			{
-			for my $source_directory (@$source_directories)
-				{
-				if($^O eq 'MSWin32' ? $sub_pbs_name =~ /^$source_directory(.*)/i :
-				   					  $sub_pbs_name =~ /^$source_directory(.*)/)
-					{
-					$sub_pbs_name_stem = $1 ;
-					last ;
-					}
-				}
-			}
-		else
-			{
-			$sub_pbs_name_stem = $sub_pbs_name ;
-			}
-		
-		if(! exists $sub_pbs_hash->{NON_RELOCATABLE_PBSFILE} && defined $sub_pbs_name_stem)
-			{
-			$sub_pbs_name_stem =~ s/^\.\/// ;
-			$sub_pbs_name_stem =~ s/\/// ;
-			
-			for my $source_directory (@$source_directories)
-				{
-				#~ PrintDebug "Trying: $source_directory/$sub_pbs_name_stem\n" ;
-				
-				if(-e "$source_directory/$sub_pbs_name_stem")
-					{
-					if("$source_directory/$sub_pbs_name_stem" ne $sub_pbs_name)
-						{
-						PrintWarning2("Relocated '$sub_pbs_name' @ '$source_directory/$sub_pbs_name_stem'\n") ;
-						$sub_pbs_name = "$source_directory/$sub_pbs_name_stem" ;
-						last ;
-						}
-					}
-				}
-			}
-			
 		unless(defined $pbs_config->{NO_SUBPBS_INFO})
 			{
 			if(defined $pbs_config->{SUBPBS_FILE_INFO})
 				{
-				PrintWarning("[$PBS::PBS::pbs_runs] Depending '$node_name' $alias_message with sub pbs '$sub_pbs_package:$sub_pbs_name'.\n") ;
+				PrintWarning("[$PBS::PBS::pbs_runs/$PBS::PBS::Pbs_call_depth] Depending '$node_name' $alias_message with sub pbs '$sub_pbs_package:$sub_pbs_name'.\n") ;
 				}
 			else
 				{
@@ -792,25 +759,27 @@ if(0 == $has_dependencies)
 		my $already_inserted_nodes = $inserted_nodes ;
 		$already_inserted_nodes    = {} if(defined $sub_pbs_hash->{LOCAL_NODES}) ;
 		
+		#attemp to micro warp, July 2005
 		unless(exists $used_pbsfiles{$sub_pbs_name})
 			{
 			$used_pbsfiles{$sub_pbs_name} = {} ;
-			#~ $sbpbs_dependencies{$sub_pbs_name} = $used_pbsfiles{$sub_pbs_name} ;
 			}
 			
 		$used_pbsfiles{$Pbsfile}{$sub_pbs_name} = $used_pbsfiles{$sub_pbs_name} ;
+		#attemp to micro warp, July 2005
 		
-		my $sub_tree = PBS::PBS::Pbs
-						(
-						  $sub_pbs_name
-						, $load_package
-						, $sub_pbs_config
-						, \%sub_config
-						, [$sub_node_name]
-						, $already_inserted_nodes
-						, $tree_name
-						, $sub_pbs_config->{PBS_COMMAND}
-						) ;
+		my ($build_result, $build_message, $sub_tree)
+			= PBS::PBS::Pbs
+				(
+				  $sub_pbs_name
+				, $load_package
+				, $sub_pbs_config
+				, \%sub_config
+				, [$sub_node_name]
+				, $already_inserted_nodes
+				, $tree_name
+				, $sub_pbs_config->{PBS_COMMAND}
+				) ;
 						
 		# keep this node insertion info
 		$sub_tree->{$sub_node_name}{__INSERTED_AT}{ORIGINAL_INSERTION_DATA} =  $tree->{__INSERTED_AT} ;
@@ -970,6 +939,131 @@ if($PBS::Debug::debug_enabled)
 }
 
 #-------------------------------------------------------------------------------
+
+sub LocatePbsfile
+{
+my $pbs_config   = shift ;
+my $Pbsfile      = shift ;
+my $sub_pbs_name = shift ;
+
+my $source_directories = $pbs_config->{SOURCE_DIRECTORIES} ;
+my $sub_pbs_name_stem ;
+
+if(File::Spec->file_name_is_absolute($sub_pbs_name))
+	{
+	PrintDebug "Using absolute subpbs: '$sub_pbs_name'\n" ;
+	}
+else
+	{
+	my ($basename, $path, $ext) = File::Basename::fileparse($Pbsfile, ('\..*')) ;			
+	
+	my $found_pbsfile ;
+	for my $source_directory (@$source_directories, $path)
+		{
+		my $searched_pbsfile = PBS::PBSConfig::CollapsePath("$source_directory/$sub_pbs_name") ;
+		
+		if(-e $searched_pbsfile)
+			{
+			if($found_pbsfile)
+				{
+				if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
+					{
+					PrintDebug "Ignoring pbsfile '$sub_pbs_name' in '$source_directory'\n" ;
+					}
+				}
+			else
+				{
+				if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
+					{
+					PrintDebug "Located pbsfile '$sub_pbs_name' in '$source_directory'\n" ;
+					}
+					
+				$found_pbsfile = $searched_pbsfile ;
+				
+				last unless $pbs_config->{DISPLAY_ALL_SUBPBS_ALTERNATIVES} ;
+				}
+			}
+		else
+			{
+			if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
+				{
+				PrintDebug "Couldn't find pbsfile '$sub_pbs_name' in '$source_directory'\n" ;
+				}
+			}
+		}
+		
+	my $sub_pbs_name_stem ;
+	$found_pbsfile ||= "$path$sub_pbs_name" ;
+	
+	#check if we can find it somewhere else in the source directories
+	for my $source_directory (@$source_directories)
+		{
+		my $flag = '' ;
+		$flag = '(?i)' if $^O eq 'MSWin32' ;
+		
+		if($found_pbsfile =~ /$flag^$source_directory(.*)/)
+			{
+			$sub_pbs_name_stem = $1
+			}
+		}
+		
+	my $relocated_subpbs ;
+	if(defined $sub_pbs_name_stem)
+		{
+		if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
+			{
+			PrintDebug "Found stem '$sub_pbs_name_stem'.\n" ;
+			}
+			
+		for my $source_directory (@$source_directories)
+			{
+			my $relocated_from_stem = PBS::PBSConfig::CollapsePath("$source_directory/$sub_pbs_name_stem") ;
+			
+			if(-e $relocated_from_stem)
+				{
+				unless($relocated_subpbs)
+					{
+					$relocated_subpbs = $relocated_from_stem  ;
+					
+					if($relocated_from_stem ne $found_pbsfile)
+						{
+						PrintWarning2("Relocated '$sub_pbs_name_stem' in '$source_directory'.\n") ;
+						}
+					else
+						{
+						if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
+							{
+							PrintDebug("Keeping '$sub_pbs_name_stem' from '$source_directory'.\n") ;
+							}
+						}
+						
+					last unless $pbs_config->{DISPLAY_ALL_SUBPBS_ALTERNATIVES} ;
+					}
+				else
+					{
+					if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
+						{
+						PrintDebug "Ignoring relocation of '$sub_pbs_name_stem' in '$source_directory'\n" ;
+						}
+					}
+				}
+			else
+				{
+				if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
+					{
+					PrintDebug "Couldn't relocate '$sub_pbs_name_stem' in '$source_directory'\n" ;
+					}
+				}
+			}
+		}
+		
+	$sub_pbs_name = $relocated_subpbs || $found_pbsfile || $sub_pbs_name;
+	}
+
+return($sub_pbs_name) ;
+}
+
+#-------------------------------------------------------------------------------------------------------
 
 1 ;
 

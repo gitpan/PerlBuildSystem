@@ -87,10 +87,12 @@ else
 	
 	if(@{$file_tree->{__MATCHING_RULES}})
 		{
+		#~ $reason .= "No Builder for '$file_tree->{__NAME}'.\n" ; 
 		$reason .= "No Builder.\n" ; 
 		}
 	else
 		{
+		#~ $reason .= "No matching rule for '$file_tree->{__NAME}'.\n"  ;
 		$reason .= "No matching rule.\n"  ;
 		}
 	
@@ -152,7 +154,7 @@ if($build_result == BUILD_SUCCESS)
 	if($pbs_config->{DISPLAY_BUILD_RESULT})
 		{
 		$build_message ||= '' ;
-		PrintInfo("Build result for $build_name : $build_result : $build_message\n") ;
+		PrintInfo("Build result for '$build_name' : $build_result : $build_message\n") ;
 		}
 		
 	($build_result, $build_message) = RunPostBuildCommands($pbs_config, $file_tree, $dependencies, $triggered_dependencies) ;

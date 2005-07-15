@@ -390,8 +390,14 @@ $Data::TreeDumper::Maxdepth   = $pbs_config{DISPLAY_TEXT_TREE_MAX_DEPTH} ;
 unless(defined $pbs_config{PBSFILE})
 	{
 	my @pbsfile_names;
-	@pbsfile_names = qw(pbsfile.pl pbsfile) if ($^O eq 'MSWin32');
-	@pbsfile_names = qw(Pbsfile.pl pbsfile.pl Pbsfile pbsfile) unless ($^O eq 'MSWin32');
+	if($^O eq 'MSWin32')
+		{
+		@pbsfile_names = qw(pbsfile.pl pbsfile) ;
+		}
+	else
+		{
+		@pbsfile_names = qw(Pbsfile.pl pbsfile.pl Pbsfile pbsfile) ;
+		}
 
 	my %existing_pbsfile = map{( $_ => 1)} grep { -e "./$_"} @pbsfile_names ;
 	
@@ -642,27 +648,6 @@ sub CollapsePath
 my $path_with_only_slashes;
 ($path_with_only_slashes = File::Spec->canonpath($_[0])) =~ s|\\|/|g;
 return $path_with_only_slashes;
-}
-
-sub Obsolete____________CollapsePath
-{
-#remove '.' and '..' from a path
-
-my $collapsed_path = $_[0] ;
-
-$collapsed_path =~ s~(?<!\.)\./~~g ;
-$collapsed_path =~ s~/\.$~~ ;
-
-1 while($collapsed_path =~ s~[^/]+/\.\./~~) ;
-$collapsed_path =~ s~[^/]+/\.\.$~~ ;
-
-# collaps to root
-$collapsed_path =~ s~^/(\.\./)+~/~ ;
-
-#remove trailing '/'
-$collapsed_path =~ s~/$~~ unless $collapsed_path eq '/' ;
-
-return($collapsed_path) ;
 }
 
 #-------------------------------------------------------------------------------

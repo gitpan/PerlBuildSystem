@@ -1,6 +1,18 @@
 
 use Data::TreeDumper ;
 
+#~ PrintDebug 
+	#~ DumpTree
+		#~ (
+		#~ $dependency_tree
+		#~ , '$dependency_tree'
+		#~ , MAX_DEPTH => 2
+		#~ ) ;
+
+
+#~ PrintDebug "undef Pbsfile" unless defined $dependency_tree->{__PBS_CONFIG}{PBSFILE} ;
+#~ PrintDebug "undef used_pbsfile!\n" unless defined  $PBS::Depend::used_pbsfiles{$dependency_tree->{__PBS_CONFIG}{PBSFILE}} ;
+
 PrintDebug 
 	DumpTree
 		(

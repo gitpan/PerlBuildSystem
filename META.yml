@@ -1,6 +1,6 @@
 ---
 name: PerlBuildSystem
-version: 0.33
+version: 0.34
 author:
   - Khemir Nadim ibn Hamouda. <nadim@khemir.net>
 abstract: ~
@@ -56,9 +56,6 @@ provides:
   PBS::Constants:
     file: PBS/Constants.pm
     version: 0.07
-  PBS::Creator:
-    file: PBS/Creator.pm
-    version: 0.01
   PBS::Cyclic:
     file: PBS/Cyclic.pm
     version: 0.03
@@ -85,7 +82,7 @@ provides:
     version: 0.02
   PBS::FrontEnd:
     file: PBS/FrontEnd.pm
-    version: 0.33
+    version: 0.34
   PBS::Graph:
     file: PBS/Graph.pm
     version: 0.04
@@ -130,6 +127,9 @@ provides:
     version: 0.09
   PBS::Rules::Builders:
     file: PBS/Rules/Builders.pm
+    version: 0.01
+  PBS::Rules::Creator:
+    file: PBS/Rules/Creator.pm
     version: 0.01
   PBS::Rules::Dependers:
     file: PBS/Rules/Dependers.pm

@@ -1,7 +1,28 @@
 Revision history for PBS (Perl Build System).
 All changes by Nadim Khemir (NKH) except when otherwise stated.
 
-0.33  Jul 2005
+0.34  Fri 15 Jul 2005
+	ADDED: some sanity checking and warnings when using CREATORs
+	REMOVED: -hu -hr
+	ADDED: -pbsfile_pod -pbs2pod -raw_pod
+	CHANGED: extract user help from pos sections marked with =for PBS
+	ADDED: documentation about how to document Pbsfiles
+	FIXED: some typos, patch by Sébastien Aperghis-Tramoni
+	ADDED: AddSubpbsRules
+	ADDED: PbsUse accepts full path to modules
+	FIXED: error when subpbs package name contained spaces
+	CHANGED: use Data::Compare in config
+	REMOVED: NON_RELOCATABLE_PBSFILE
+	CHANGED: Pbsfile locating algorithm
+	ADDED: -display_subpbs_search_info -display_all_subpbs_alternatives
+	ADDED: -tda
+	ADDED: skip -gtg test if GraphViz is not installed
+	FIXED: post pbs didn't get a proper tree if a builder failed
+	CHANGED: some of the exception handling to allow merging 
+		a creator generated tree to the main dependency tree and other
+		crazy stuff. Needed to cleanly handle Java jni for example.
+
+0.33  05 Jul 2005
 	ADDED: DISPLAY_WARP_TRIGGERED_NODES
 	CHANGED: ask pre-requisit D:TD instead for Bundle::TD
 	FIXED: some POD typos and an install problem thanks to Mike Castle

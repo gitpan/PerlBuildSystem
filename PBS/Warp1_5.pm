@@ -124,7 +124,15 @@ if($run_in_warp_mode)
 	my $node_verified = 0 ;
 	for my $node (keys %$nodes)
 		{
-		PrintInfo "\r$node_verified" ;
+		if($pbs_config->{DISPLAY_WARP_CHECKED_NODES})	
+			{
+			PrintDebug "Warp checking: '$node'.\n" ;
+			}
+		else
+			{
+			PrintInfo "\r$node_verified" ;
+			}
+			
 		$node_verified++ ;
 		
 		next unless exists $nodes->{$node} ; # can have been removed by one of its dependencies
@@ -245,13 +253,9 @@ if($run_in_warp_mode)
 		{
 		PrintInfo(sprintf("Warp 1.5 verification time: %0.2f s.\n", tv_interval($t0_warp_check, [gettimeofday]))) ;
 		}
-	
+		
 	if($number_of_removed_nodes)
 		{
-		if(defined $pbs_config->{DISPLAY_WARP_TREE})
-			{
-			}
-			
 		if(defined $pbs_config->{DISPLAY_WARP_BUILD_SEQUENCE})
 			{
 			}
@@ -273,6 +277,7 @@ if($run_in_warp_mode)
 		# much of the "normal" node attributes are stripped in warp nodes
 		# let the rest of the system know about this (ex graph generator)
 		$pbs_config->{IN_WARP} = 1 ;
+		my ($build_result, $build_message) ;
 		my $new_dependency_tree ;
 		
 		eval
@@ -281,17 +286,18 @@ if($run_in_warp_mode)
 			my $node_plural = '' ; $node_plural = 's' if $number_of_removed_nodes > 1 ;
 			
 			PrintInfo "Running PBS in warp 1.5 mode. $number_of_removed_nodes node$node_plural to rebuild.\n" ;
-			($new_dependency_tree) = PBS::PBS::Pbs
-								(
-								  $pbs_config->{PBSFILE}
-								, ''    # parent package
-								, $pbs_config
-								, {}    # parent config
-								, $targets
-								, $nodes
-								, "warp_tree"
-								, DEPEND_CHECK_AND_BUILD
-								) ;
+			($build_result, $build_message, $new_dependency_tree)
+				= PBS::PBS::Pbs
+					(
+					  $pbs_config->{PBSFILE}
+					, ''    # parent package
+					, $pbs_config
+					, {}    # parent config
+					, $targets
+					, $nodes
+					, "warp_tree"
+					, DEPEND_CHECK_AND_BUILD
+					) ;
 			} ;
 			
 		if($@)
@@ -318,12 +324,12 @@ if($run_in_warp_mode)
 				) ;
 			}
 			
-		return($new_dependency_tree, $nodes) ;
+		return($build_result, $build_message, $new_dependency_tree, $nodes) ;
 		}
 	else
 		{
 		PrintInfo("Warp 1.5: Up to date.\n") ;
-		return({WARP_1_5_DPENDENCY_TREE => "doesn't really exist."}, $nodes) ;
+		return(BUILD_SUCCESS, "Warp 1.5: Up to date", {READ_ME => "Up to date warp doesn't have any tree"}, $nodes) ;
 		}
 	}
 else
@@ -350,20 +356,21 @@ else
 			) ;
 		} ;
 		
-	my ($dependency_tree, $inserted_nodes) ;
+	my ($build_result, $build_message, $dependency_tree, $inserted_nodes) ;
 	eval
 		{
-		($dependency_tree, $inserted_nodes) = PBS::PBS::Pbs
-							(
-							$pbs_config->{PBSFILE}
-							, ''    # parent package
-							, $pbs_config
-							, {}    # parent config
-							, $targets
-							, undef # inserted files
-							, "root_WARP_1_5_NEEDS_REBUILD_pbs_$pbs_config->{PBSFILE}" # tree name
-							, DEPEND_CHECK_AND_BUILD
-							) ;
+		($build_result, $build_message, $dependency_tree, $inserted_nodes)
+			= PBS::PBS::Pbs
+				(
+				$pbs_config->{PBSFILE}
+				, ''    # parent package
+				, $pbs_config
+				, {}    # parent config
+				, $targets
+				, undef # inserted files
+				, "root_WARP_1_5_NEEDS_REBUILD_pbs_$pbs_config->{PBSFILE}" # tree name
+				, DEPEND_CHECK_AND_BUILD
+				) ;
 		} ;
 		
 		if($@)
@@ -393,7 +400,7 @@ else
 				) ;
 			}
 			
-	return($dependency_tree, $inserted_nodes) ;
+	return($build_result, $build_message, $dependency_tree, $inserted_nodes) ;
 	}
 }
 

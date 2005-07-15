@@ -1,27 +1,26 @@
 Perl Build System
 =================
 
-Remove spurious PBSFILE HELP for -hu -hur output
+Ignoring Builder from rule: #10 'eca_subdirs'.
+	=> give more details in dpb mode
+	
+No builder failed message should include node name
+	done but not in because of failing tests
+	
+error at check time => die, since we don't want to generate a warpfile
+	=> return an error instead and see that no warp file should be generated
+	
+ispell all documents
 
-Add creator for C files
-
-#Check if CREATOR can be mixed with other rule types
-	#=> including CREATOR multiple times
+^Add creator for C files
 
 extra arguments to depender should be passed as a ref to @
 
 Test for -gtg only if graphviz is installed
 
-#? AR [x => y], BuilderAndCreator(\creator) ;
-	=> AR [CREATOR], 'name', ['A' => 'B4], "touch %FILE_TO_BUILD" ;
-	
 Information.pm could reuse some function defined in NodeBuilder.pm
 
-#Should we ignore (or even warn) if  a rule with creator also has a builder?
-
 check if $C_dependencies_cache and $Creator_dependencies_cache shouldn't be flushed
-
-#wizard info and help
 
 Release
 	Batch::PBS
@@ -403,6 +402,32 @@ _ redirect stdout/err to file even when not using -j
 _ INHERITANCE of PBS_CONFIG and CONFIG should be done through reference and override instead for copy
 
 ##############################   Done   ########################################
+
+#merge Adsubpbsrules from work
+
+#Document the fact that warp1_5 doesn't have a warp tree
+
+#relocated Pbsfile is psycho!
+	=> rewrote and added switches -display_subpbs_search_info -display_all_subpbs_alternatives
+
+#Postpbs doest get a valid dependency tree if the build failed
+	return error code instead for exception
+	
+#add link to rt.cpan.org
+
+#Apply patch 
+
+#Remove spurious PBSFILE HELP for -hu -hur output
+
+#? AR [x => y], BuilderAndCreator(\creator) ;
+	=> AR [CREATOR], 'name', ['A' => 'B4], "touch %FILE_TO_BUILD" ;
+	
+#Check if CREATOR can be mixed with other rule types
+	#=> including CREATOR multiple times
+
+#Should we ignore (or even warn) if  a rule with creator also has a builder?
+
+#wizard info and help
 
 #Get the C depender (and other dependers) to exclusively use PBS md5 functions instead for defining it's own. 
 	Let PBS check the C digest

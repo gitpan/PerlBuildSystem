@@ -71,8 +71,9 @@ if(defined $pbs_config->{DEBUG_DISPLAY_TREE_NAME_ONLY})
 						{
 						if
 							(
-							   (/^__BUILD_NAME$/ && defined $pbs_config->{DEBUG_DISPLAY_TREE_NAME_BUILD})
-							|| (/^__TRIGGERED$/ && defined $pbs_config->{DEBUG_DISPLAY_TREE_NODE_TRIGGERED_REASON})
+							   (/^__BUILD_NAME$/  && defined $pbs_config->{DEBUG_DISPLAY_TREE_NAME_BUILD})
+							|| (/^__TRIGGERED$/   && defined $pbs_config->{DEBUG_DISPLAY_TREE_NODE_TRIGGERED_REASON})
+							|| (/^__DEPENDED_AT$/ && defined $pbs_config->{DEBUG_DISPLAY_TREE_DEPENDED_AT})
 							#~ || /^__VIRTUAL/
 							)
 							{

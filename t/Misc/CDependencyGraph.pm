@@ -66,10 +66,13 @@ sub c_dependency_graph : Test(5) {
     $t->build_test;
     my $stdout = $t->stdout;
     like($stdout, qr|inc\.h|, 'Include file is in dependency graph');
-
+    $t->dump_stdout_stderr ;
     $t->test_up_to_date;
     $stdout = $t->stdout;
-    # The bug was here. The cache didn't include the dependency inc.h
+#    $t->dump_stdout_stderr ;
+#    $t->generate_test_snapshot_and_exit();
+
+# The bug was here. The cache didn't include the dependency inc.h
     like($stdout, qr|inc\.h|, 'Include file is in dependency graph');
 }
 

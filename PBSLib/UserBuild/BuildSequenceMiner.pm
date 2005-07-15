@@ -5,6 +5,8 @@ use Data::Dumper ;
 use PBS::Output ;
 use PBS::Shell ;
 
+die "Old example kept for historical reasons only!\n This can be made to work again :)\n" ;
+
 #-------------------------------------------------------------------------------
 sub BuildSequenceMiner
 {

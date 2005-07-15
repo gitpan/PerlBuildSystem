@@ -16,7 +16,7 @@ use AutoLoader qw(AUTOLOAD) ;
 our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } ) ;
-our @EXPORT = qw(AddRule AddRuleTo AddSubpbsRule ReplaceRule ReplaceRuleTo RemoveRule BuildOk) ;
+our @EXPORT = qw(AddRule AddRuleTo AddSubpbsRule AddSubpbsRules ReplaceRule ReplaceRuleTo RemoveRule BuildOk) ;
 our $VERSION = '0.09' ;
 
 use File::Basename ;
@@ -29,7 +29,7 @@ use PBS::PBSConfig ;
 use PBS::Output ;
 use PBS::Constants ;
 use PBS::Plugin ;
-use PBS::Creator ;
+use PBS::Rules::Creator ;
 
 use base qw(PBS::Attributes) ;
 
@@ -579,19 +579,35 @@ return
 
 
 #-------------------------------------------------------------------------------
+sub AddSubpbsRules
+{
+my ($package, $file_name, $line) = caller() ;
+$file_name =~ s/^'// ;
+$file_name =~ s/'$// ;
+
+for(@_)
+	{
+	__AddSubpbsRule($package, $file_name, $line, $_) ;
+	}
+}
 
 sub AddSubpbsRule
+{
+my ($package, $file_name, $line) = caller() ;
+$file_name =~ s/^'// ;
+$file_name =~ s/'$// ;
+
+__AddSubpbsRule($package, $file_name, $line, \@_) ;
+}
+
+sub __AddSubpbsRule
 {
 # Syntactic sugar, this function can be called instead for 
 # AddRule .. { subpbs_definition}
 # the compulsory arguments come first, then one can pass 
 # key-value pairs as in a normal subpbs definition
 
-my ($package, $file_name, $line) = caller() ;
-$file_name =~ s/^'// ;
-$file_name =~ s/'$// ;
-
-my $rule_definition = \@_ ;
+my ($package, $file_name, $line, $rule_definition) = @_ ;
 
 my ($rule_name, $node_regex, $Pbsfile, $pbs_package, @other_setup_data) 
 	= RunUniquePluginSub('AddSubpbsRule', $file_name, $line, $rule_definition) ;
@@ -621,7 +637,7 @@ RegisterRule
 __END__
 =head1 NAME
 
-PBS::Rules::Rules - Manipulate PBS rules
+PBS::Rules - Manipulate PBS rules
 
 =head1 SYNOPSIS
 

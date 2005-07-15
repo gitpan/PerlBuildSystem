@@ -149,28 +149,41 @@ _EOF_
 }
 
 sub flag_gtg : Test(2) {
-    # Write files
-    $t->write_pbsfile(<<'_EOF_');
-    ExcludeFromDigestGeneration('in-files' => qr/\.in$/);
-    AddRule 'target', ['file.target' => 'file.in'] =>
-	'cat %DEPENDENCY_LIST > %FILE_TO_BUILD';
-_EOF_
-    $t->write('file.in', 'file contents');
+eval "use GraphViz;" ;
+my $graphviz_not_installed = $@ ;
 
-    # Build
-    $t->command_line_flags($t->command_line_flags . ' --gtg=graph.png');
-    if ($^O eq 'MSWin32')
+# Write files
+$t->write_pbsfile(<<'_EOF_');
+ExcludeFromDigestGeneration('in-files' => qr/\.in$/);
+AddRule 'target', ['file.target' => 'file.in'] =>
+'cat %DEPENDENCY_LIST > %FILE_TO_BUILD';
+_EOF_
+$t->write('file.in', 'file contents');
+
+# Build
+$t->command_line_flags($t->command_line_flags . ' --gtg=graph.png');
+if($^O eq 'MSWin32')
 	{
-		TODO: {
-			local $TODO = 'Generate tree graph does not work on Windows';
-			$t->build_test();
-			ok(-s 'graph.png', 'Graph file has nonzero size');
-		}
-	}
-    else
-	{
+	TODO: 
+		{
+		local $TODO = 'Generate tree graph does not work on Windows';
 		$t->build_test();
 		ok(-s 'graph.png', 'Graph file has nonzero size');
+		}
+	}
+elsif($graphviz_not_installed)
+	{
+	TODO: 
+		{
+		local $TODO = "Graphviz is not installed\n";
+		$t->build_test();
+		ok(-s 'graph.png', 'Graph file has nonzero size');
+		}
+	}
+else
+	{
+	$t->build_test();
+	ok(-s 'graph.png', 'Graph file has nonzero size');
 	}
 }
 

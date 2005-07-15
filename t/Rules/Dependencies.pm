@@ -145,7 +145,7 @@ _EOF_
 
 # Build
     $t->build;
-#~ $t->dump_stdout_stderr ;
+# $t->dump_stdout_stderr ;
 #~ $t->generate_test_snapshot_and_exit();
     isnt($?, 0, 'Exit status indicating error');
     my $stderr = $t->stderr;

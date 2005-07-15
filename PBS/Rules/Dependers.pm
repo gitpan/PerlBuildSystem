@@ -1,4 +1,3 @@
-
 package PBS::Rules::Dependers ;
 
 use PBS::Debug ;
@@ -328,7 +327,7 @@ return($dependencies_evaluator) ;
 __END__
 =head1 NAME
 
-PBS::Rules::Dependers-
+PBS::Rules::Dependers -
 
 =head1 DESCRIPTION
 

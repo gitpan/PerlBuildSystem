@@ -1,4 +1,3 @@
-
 package PBS::Graph::Html ;
 use PBS::Debug ;
 
@@ -265,7 +264,7 @@ else
 __END__
 =head1 NAME
 
-PBS::GraphHtml  -
+PBS::Graph::Html -
 
 =head1 DESCRIPTION
 

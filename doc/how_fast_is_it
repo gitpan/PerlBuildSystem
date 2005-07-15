@@ -110,6 +110,8 @@ Generating warp 1.5 file.
 Warp 1.5 generated in: 0.51 s.
 Total time in PBS: 1.58 s.
 
+I a normal development environment, I'd say less than 2 seconds to check and begin building when the file cache is full.
+
 *****************************************
 without PBS cache (but with the filesystem cache full)
 
@@ -126,8 +128,6 @@ Total time in PBS: 16.02 s.
 
 We went through 118 make files that each define it's own set of rules (the same ones but reloaded) Verified 700 C files and their dependencies (MD5)
 We also loaded perl and a bunch of modules.
-
-I a normal development environment, I'd say less than 2 seconds to check and begin building when the file cache is full.
 
 *****************************************
 

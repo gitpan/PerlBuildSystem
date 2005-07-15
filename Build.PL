@@ -13,7 +13,6 @@ PBS/Check.pm
 PBS/Cyclic.pm
 PBS/Config.pm
 PBS/Constants.pm
-PBS/Creator.pm
 PBS/DefaultBuild.pm
 PBS/Debug.pm
 PBS/Depend.pm
@@ -35,6 +34,7 @@ PBS/Rules.pm
 PBS/Rules.pm
 PBS/Rules/Dependers.pm
 PBS/Rules/Dependers/Subpbs.pm
+PBS/Rules/Creator.pm
 PBS/Rules/Builders.pm
 PBS/Rules/Metarules.pm
 PBS/Triggers.pm
@@ -59,6 +59,7 @@ my $build = Module::Build->new
 		Getopt::Long        => '2.32',
 		Cwd                 => '2.06',
 		Data::Dumper        => '2.12',
+		Data::Compare       => '0',
 		File::Basename      => '2.71',
 		Tie::IxHash         => '1.21',
 		Tie::Hash::Indexed  => '0.03',

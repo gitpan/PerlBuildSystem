@@ -1,4 +1,3 @@
-
 package PBS::Output ;
 
 use 5.006 ;
@@ -310,7 +309,7 @@ PrintWithContext($_[0], 1, 3, $_[1], \&ERROR, \&INFO) if defined $PBS::Output::d
 __END__
 =head1 NAME
 
-PBS::  -
+PBS::Output -
 
 =head1 SYNOPSIS
 

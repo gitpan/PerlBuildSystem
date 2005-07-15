@@ -17,7 +17,7 @@ our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw() ;
-our $VERSION = '0.33' ;
+our $VERSION = '0.34' ;
 
 use PBS::PBSConfig ;
 use PBS::PBS ;
@@ -54,15 +54,15 @@ my $display_help              = $pbs_config->{DISPLAY_HELP} ;
 my $display_switch_help       = $pbs_config->{DISPLAY_SWITCH_HELP} ;
 my $display_help_narrow       = $pbs_config->{DISPLAY_HELP_NARROW_DISPLAY} || 0 ;
 my $display_version           = $pbs_config->{DISPLAY_VERSION} ;
-my $display_user_help         = $pbs_config->{DISPLAY_USER_HELP} ;
-my $display_raw_user_help     = $pbs_config->{DISPLAY_RAW_USER_HELP} ;
+my $display_user_help         = $pbs_config->{DISPLAY_PBSFILE_POD} ;
+my $extract_pod_from_pbsfile  = $pbs_config->{PBS2POD} ;
 my $display_pod_documentation = $pbs_config->{DISPLAY_POD_DOCUMENTATION} ;
 
-if($display_help || $display_switch_help || $display_version || $display_user_help || $display_raw_user_help || defined $display_pod_documentation)
+if($display_help || $display_switch_help || $display_version || $display_user_help || $extract_pod_from_pbsfile || defined $display_pod_documentation)
 	{
 	PBS::PBSConfigSwitches::DisplayHelp($display_help_narrow) if $display_help ;
 	PBS::PBSConfigSwitches::DisplaySwitchHelp($display_switch_help) if $display_switch_help ;
-	PBS::PBSConfigSwitches::DisplayUserHelp($pbs_config->{PBSFILE} , $display_raw_user_help) if $display_user_help || $display_raw_user_help ;
+	PBS::PBSConfigSwitches::DisplayUserHelp($pbs_config->{PBSFILE} , $display_user_help, $pbs_config->{RAW_POD}) if $display_user_help || $extract_pod_from_pbsfile ;
 	DisplayVersion() if $display_version ;
 	
 	PBS::Documentation::DisplayPodDocumentation($pbs_config, $display_pod_documentation) if defined $display_pod_documentation ;
@@ -118,21 +118,22 @@ PrintInfo($parse_result->[PARSE_SWITCH_MESSAGE]) ;
 my $targets =
 	[
 	map
-				{
-				my $target = $_ ;
-				
-				$target = $_ if File::Spec->file_name_is_absolute($_) ; # full path
-				$target = $_ if /^.\// ; # current dir (that's the build dir)
-				$target = "./$_" unless /^[.\/]/ ;
-				
-				$target ;
-				} @unparsed_arguments
+		{
+		my $target = $_ ;
+		
+		$target = $_ if File::Spec->file_name_is_absolute($_) ; # full path
+		$target = $_ if /^.\// ; # current dir (that's the build dir)
+		$target = "./$_" unless /^[.\/]/ ;
+		
+		$target ;
+		} @unparsed_arguments
 	] ;
 
 $pbs_config->{PACKAGE} = 'PBS' ;
 
 # make the variables bellow accessible from a post pbs script
 our $build_success = 1 ;
+my ($build_result, $build_message) ;
 our ($dependency_tree, $inserted_nodes) = ({}, {}) ;
 
 if(@$targets)
@@ -143,47 +144,36 @@ if(@$targets)
 
 	eval
 		{
-		if(defined $pbs_config->{USE_WARP_FILE})
-			{
-			eval "use PBS::Warp ;" ;
-			die $@ if $@ ;
-			
-			($dependency_tree, $inserted_nodes) = PBS::Warp::WarpPbs
-						(
-						  $targets
-						, $pbs_config
-						) ;
-			}
-		elsif(defined $pbs_config->{USE_WARP1_5_FILE})
+		if(defined $pbs_config->{USE_WARP1_5_FILE})
 			{
 			eval "use PBS::Warp1_5 ;" ;
 			die $@ if $@ ;
 			
-			($dependency_tree, $inserted_nodes) = PBS::Warp1_5::WarpPbs
-						(
-						  $targets
-						, $pbs_config
-						) ;
+			($build_result, $build_message, $dependency_tree, $inserted_nodes)
+				= PBS::Warp1_5::WarpPbs
+					(
+					  $targets
+					, $pbs_config
+					) ;
 			}
 		else
 			{
-			($dependency_tree, $inserted_nodes) = PBS::PBS::Pbs
-				(
-				$pbs_config->{PBSFILE}
-				, ''    # parent package
-				, $pbs_config
-				, {}    # parent config
-				, $targets
-				, undef # inserted files
-				, "root_${pbs_root_index}_pbs_$pbs_config->{PBSFILE}" # tree name
-				, DEPEND_CHECK_AND_BUILD
-				) ;
+			($build_result, $build_message,$dependency_tree, $inserted_nodes)
+				= PBS::PBS::Pbs
+					(
+					$pbs_config->{PBSFILE}
+					, ''    # parent package
+					, $pbs_config
+					, {}    # parent config
+					, $targets
+					, undef # inserted files
+					, "root_${pbs_root_index}_pbs_$pbs_config->{PBSFILE}" # tree name
+					, DEPEND_CHECK_AND_BUILD
+					) ;
 			}
-		#else
-			# warp run pbs itself
 		} ;
 
-	$build_success = 0 if($@) ;
+	$build_success = 0 if($@ || $build_result != BUILD_SUCCESS) ;
 
 	if($@ && $@ !~ /BUILD_FAILED/)
 		{

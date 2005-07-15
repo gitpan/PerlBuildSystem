@@ -18,6 +18,8 @@ use PBS::Output ;
 
 #-------------------------------------------------------------------------------
 
+die "Old example kept for historical reasons only!\n" ;
+
 =head2 Used B<PBS> libs
 
 none.

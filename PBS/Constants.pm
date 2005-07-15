@@ -1,4 +1,3 @@
-
 package PBS::Constants ;
 
 use 5.006 ;
@@ -119,11 +118,11 @@ use constant CONFIG_ENVIRONEMENT_VARIABLE_FLAG_SUCCESS => 1 ;
 __END__
 =head1 NAME
 
-PBS::Constans  - definition of constants use within PBS
+PBS::Constants - definition of constants use within PBS
 
 =head1 SYNOPSIS
 
-  use PBS::;Constants
+  use PBS::Constants
   ...
   return(BUILD_OK, 'message) ;
 

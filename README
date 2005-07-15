@@ -149,6 +149,10 @@ Warp1_5                               89.9   78.0   80.0   95.8    0.6   86.9
 Total                                 69.0   48.4   39.9   85.9  100.0   62.9
 ----------------------------------- ------ ------ ------ ------ ------ ------
 
+BUG REPORTS
+
+http://rt.cpan.org/NoAuth/ReportBug.html?Queue=PerlBuildSystem
+
 COPYRIGHT AND LICENCE
 
 See I<licence.txt>

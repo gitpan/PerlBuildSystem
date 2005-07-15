@@ -87,6 +87,10 @@ _EOF_
     # detected at second build).
     $t->build;
     $stderr = $t->stderr;
+
+#$t->dump_stdout_stderr ;
+#$t->generate_test_snapshot_and_exit();
+
     like($stderr, qr|Dependency cycle detected!.*\n.*inc_a\.h.*\n.*inc_b\.h|m, '');
 
     # Removing the cyclic dependency

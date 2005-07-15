@@ -1,4 +1,3 @@
-
 package PBS::Rules::Dependers::Subpbs ;
 
 use PBS::Debug ;
@@ -93,14 +92,14 @@ if(exists $depender_definition->{BUILD_DIRECTORY} && !File::Spec->file_name_is_a
 	$depender_definition->{BUILD_DIRECTORY} = $pbs_config->{BUILD_DIRECTORY} . '/' . $depender_definition->{BUILD_DIRECTORY} ;
 	}
 	
-unless(File::Spec->file_name_is_absolute($depender_definition->{PBSFILE}))
-	{
-	# make pbsfile full path
-	$depender_definition->{PBSFILE} =~ s/^\.\/// ;
-	my ($basename, $path, $ext) = File::Basename::fileparse($pbs_config->{PBSFILE}, ('\..*')) ;
-	$depender_definition->{PBSFILE} = $path. '/' . $depender_definition->{PBSFILE} ;
-	$depender_definition->{PBSFILE} =~ s/\/\//\//g ;
-	}
+#~ unless(File::Spec->file_name_is_absolute($depender_definition->{PBSFILE}))
+	#~ {
+	#~ # make pbsfile full path
+	#~ $depender_definition->{PBSFILE} =~ s/^\.\/// ;
+	#~ my ($basename, $path, $ext) = File::Basename::fileparse($pbs_config->{PBSFILE}, ('\..*')) ;
+	#~ $depender_definition->{PBSFILE} = $path. '/' . $depender_definition->{PBSFILE} ;
+	#~ $depender_definition->{PBSFILE} =~ s/\/\//\//g ;
+	#~ }
 	
 my $sub_pbs_dependent_regex ;
 
@@ -147,7 +146,7 @@ return
 __END__
 =head1 NAME
 
-PBS::Rules::Dependers-
+PBS::Rules::Dependers::Subpbs -
 
 =head1 DESCRIPTION
 

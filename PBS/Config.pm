@@ -537,7 +537,8 @@ for(my $i = 0 ; $i < @_ ; $i += 2)
 		(
 		   exists $config_to_merge_to->{PARENT}
 		&& exists $config_to_merge_to->{PARENT}{__PBS}{$key} 
-		&& $value ne $config_to_merge_to->{PARENT}{__PBS}{$key}{VALUE}
+		#~ && $value ne $config_to_merge_to->{PARENT}{__PBS}{$key}{VALUE}
+		&& ! Compare($value, $config_to_merge_to->{PARENT}{__PBS}{$key}{VALUE})
 		)
 			{
 			PrintWarning2
@@ -557,7 +558,8 @@ for(my $i = 0 ; $i < @_ ; $i += 2)
 		(
 		   exists $config_to_merge_to->{COMMAND_LINE}
 		&& exists $config_to_merge_to->{COMMAND_LINE}{__PBS}{$key} 
-		&& $value ne $config_to_merge_to->{COMMAND_LINE}{__PBS}{$key}{VALUE}
+		#~ && $value ne $config_to_merge_to->{COMMAND_LINE}{__PBS}{$key}{VALUE}
+		&& ! Compare($value, $config_to_merge_to->{COMMAND_LINE}{__PBS}{$key}{VALUE})
 		)
 			{
 			PrintWarning2
@@ -580,7 +582,8 @@ for(my $i = 0 ; $i < @_ ; $i += 2)
 		(
 		   exists $config_to_merge_to->{COMMAND_LINE}
 		&& exists $config_to_merge_to->{COMMAND_LINE}{__PBS}{$key} 
-		&& $value ne $config_to_merge_to->{COMMAND_LINE}{__PBS}{$key}{VALUE}
+		#~ && $value ne $config_to_merge_to->{COMMAND_LINE}{__PBS}{$key}{VALUE}
+		&& ! Compare($value, $config_to_merge_to->{COMMAND_LINE}{__PBS}{$key}{VALUE})
 		)
 			{
 			PrintWarning2

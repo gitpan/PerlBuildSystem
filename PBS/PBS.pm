@@ -12,6 +12,7 @@ use Carp ;
 use Tie::IxHash ;
 use Tie::Hash::Indexed ;
 use Time::HiRes qw(gettimeofday tv_interval) ;
+use File::Spec ;
 
 require Exporter ;
 use AutoLoader qw(AUTOLOAD) ;
@@ -57,7 +58,7 @@ my $Pbsfile              = shift ;
 my $parent_package       = shift ;
 my $pbs_config           = shift ;
 my $parent_config        = shift ;
-my $package              = $pbs_config->{PACKAGE} ;
+my $package              = CanonizePackageName($pbs_config->{PACKAGE}) ;
 my $build_directory      = $pbs_config->{BUILD_DIRECTORY} ;
 my $source_directories   = $pbs_config->{SOURCE_DIRECTORIES} ;
 my $targets              = shift ;
@@ -117,7 +118,7 @@ for (@{$pbs_config->{DISPLAY_PBS_CONFIGURATION}})
 
 if($display_all_pbs_config)
 	{
-	warn DumpTree($pbs_config, "Package '$package:$Pbsfile' config:") ;
+	PrintInfo DumpTree($pbs_config, "Package '$package:$Pbsfile' config:") ;
 	}
 else
 	{
@@ -169,6 +170,7 @@ tie my %tree_hash, "Tie::Hash::Indexed" ;
 
 my $dependency_tree = \%tree_hash ;
 my $build_point = '' ;
+my ($build_result, $build_message) ;
 
 if(-e $Pbsfile || defined $pbs_config->{PBSFILE_CONTENT})
 	{
@@ -211,9 +213,7 @@ if(-e $Pbsfile || defined $pbs_config->{PBSFILE_CONTENT})
 	push my @config_namespaces, @{$pbs_config->{CONFIG_NAMESPACES}} ;
 	
 	my $user_build ;
-	my $sub_config ;	PBS::PBSConfig::RegisterPbsConfig($load_package, $pbs_config) ;
-
-	
+	my $sub_config ;	
 	PBS::PBSConfig::RegisterPbsConfig($load_package, $pbs_config) ;
 	
 	#Command defines
@@ -256,7 +256,7 @@ if(-e $Pbsfile || defined $pbs_config->{PBSFILE_CONTENT})
 		  . "use PBS::Check ;\n"
 		  . "use PBS::PBS ;\n"
 		  . "use PBS::Digest;\n"
-		  . "use PBS::Creator;\n"
+		  . "use PBS::Rules::Creator;\n"
 		  . $add_pbsfile_digest
 		  
 		, "\n# load OK\n1 ;\n"
@@ -310,22 +310,23 @@ if(-e $Pbsfile || defined $pbs_config->{PBSFILE_CONTENT})
 		{
 		PrintInfo("Using user defined Build().\n") unless $pbs_config->{DISPLAY_NO_STEP_HEADER} ;
 		
-		$user_build->
-			(
-			  $Pbsfile
-			, $package
-			, $load_package
-			, $pbs_config
-			, \@rule_namespaces
-			, $rules
-			, \@config_namespaces
-			, $sub_config
-			, $targets # automatically build in rule 'BuiltIn::__ROOT', given as information only
-			, $inserted_nodes
-			, $dependency_tree # rule 0 dependent name is in $dependency_tree ->{__NAME}
-			, $build_point
-			, $depend_and_build
-			) ;
+		($build_result, $build_message)
+			= $user_build->
+				(
+				  $Pbsfile
+				, $package
+				, $load_package
+				, $pbs_config
+				, \@rule_namespaces
+				, $rules
+				, \@config_namespaces
+				, $sub_config
+				, $targets # automatically build in rule 'BuiltIn::__ROOT', given as information only
+				, $inserted_nodes
+				, $dependency_tree # rule 0 dependent name is in $dependency_tree ->{__NAME}
+				, $build_point
+				, $depend_and_build
+				) ;
 			
 		}
 	else
@@ -343,22 +344,23 @@ if(-e $Pbsfile || defined $pbs_config->{PBSFILE_CONTENT})
 			PrintInfo("PBS depend run $pbs_runs at depth: $Pbs_call_depth.       \r", 0) ;
 			}
 		
-		PBS::DefaultBuild::DefaultBuild
-									(
-									  $Pbsfile
-									, $package
-									, $load_package
-									, $pbs_config
-									, \@rule_namespaces
-									, $rules
-									, \@config_namespaces
-									, $sub_config
-									, $targets # automatically build in rule 'BuiltIn::__ROOT', given as information only
-									, $inserted_nodes
-									, $dependency_tree
-									, $build_point
-									, $depend_and_build
-									) ;
+		($build_result, $build_message)
+			= PBS::DefaultBuild::DefaultBuild
+				(
+				  $Pbsfile
+				, $package
+				, $load_package
+				, $pbs_config
+				, \@rule_namespaces
+				, $rules
+				, \@config_namespaces
+				, $sub_config
+				, $targets # automatically build in rule 'BuiltIn::__ROOT', given as information only
+				, $inserted_nodes
+				, $dependency_tree
+				, $build_point
+				, $depend_and_build
+				) ;
 									
 		}
 	}
@@ -375,7 +377,9 @@ if($pbs_config->{DISPLAY_DEPENDENCY_TIME})
 	PrintInfo(sprintf("Time in Pbsfile: %0.2f s.\n", tv_interval ($t0, [gettimeofday]))) ;
 	}
 	
-return($dependency_tree, $inserted_nodes) ;
+#~ die $build_message unless $build_result == BUILD_SUCCESS ;
+#~ return($dependency_tree, $inserted_nodes, $build_result) ;
+return($build_result, $build_message, $dependency_tree, $inserted_nodes) ;
 }
 
 #-------------------------------------------------------------------------------
@@ -408,14 +412,21 @@ for my $source_name (@{[@_]})
 		die ;
 		}
 	
-	for my $lib_path (@{$pbs_config->{LIB_PATH}})
+	if(File::Spec->file_name_is_absolute($source_name))
 		{
-		$lib_path .= '/' unless $lib_path =~ /\/$/ ;
-		
-		if(-e $lib_path . $source_name)
+		$located_source_name = $source_name ;
+		}
+	else
+		{
+		for my $lib_path (@{$pbs_config->{LIB_PATH}})
 			{
-			$located_source_name = $lib_path . $source_name ;
-			last ;
+			$lib_path .= '/' unless $lib_path =~ /\/$/ ;
+			
+			if(-e $lib_path . $source_name)
+				{
+				$located_source_name = $lib_path . $source_name ;
+				last ;
+				}
 			}
 		}
 	
@@ -494,12 +505,19 @@ return DumpTree($files_loaded_via_PbsUse{__STATISTIC}, "'PbsUse' statistic:", DI
 }
 
 #-------------------------------------------------------------------------------
+sub CanonizePackageName
+{
+my $package = shift || die ;
+$package =~ s/[^a-zA-Z0-9_:]+/_/g ;
+
+return($package) ;
+}
 
 sub LoadFileInPackage
 {
 my $type       = shift ;
 my $file       = shift ;
-my $package    = shift ;
+my $package    = CanonizePackageName(shift) ;
 my $pbs_config = shift ;
 my $pre_code   = shift || '' ;
 my $post_code  = shift || '' ;

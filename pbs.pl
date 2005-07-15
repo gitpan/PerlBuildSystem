@@ -31,7 +31,7 @@ else
 __END__
 =head1 NAME
 
-PerlBuildSystem - (PBS) Build system written in perl.
+PerlBuildSystem - Make replacement with rules written in perl.
 
 =head1 SYNOPSIS
 

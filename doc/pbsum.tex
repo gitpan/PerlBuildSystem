@@ -1,0 +1,113 @@
+\title{PerlBuildSystem User's Manual}
+
+\tableofcontents
+
+\section{Introduction}
+\subsection{What is PBS?}
+PBS is PerlBuildSystem, a powerful tool for making correct and intelligent build systems
+without the pain, failure and insanity such activities would entail had they been attempted with
+\tt{make(1)}. Rather than a simplistic rule-based build engine, PBS is a meta build system
+-- a Perl API for writing build systems if you like.
+\subsection{History}
+While working as system- and OS architects at C Technologies, part of our responsibility
+was maintaining the build system. As the system grew bigger, so did the complexity of
+the make system, and although most of the complexity had been tucked away in library
+Makefiles with simple templates to fill out when adding new subdirectories and modules
+to the system, the maintenance burden was ever increasing.
+\\
+The operating system and embedded
+software we were building had become complex enough that build configuration of the system
+needed to be part of -- and verified by -- the build system, and \tt{make(1)} was starting
+to look like too weak a tool for the job despite the various Perl programs that had found
+their way into the build system over the years. It was at this point we got hit by what
+must have been a bug in the then current version of GNU make -- it \tt{include}d Makefiles
+in \italic{random} order. Not reverse, not in file-modification-date, not in alphabetic
+order -- but \italic{random} order. We'd had it. This Had To Be Done Right\trademark.
+We got some funding to develop PBS as an open source tool, and Nadim started working on the
+first version of PBS.
+\subsection{Design goals}
+Our experience showed that while \tt{make(1)}} is based on sound ideas and is
+quite fast and efficient, it has too severe limitations by design to make it practically
+feasible to write and maintain a build system that guarantees your build is up to date.
+Also, because of the very way \tt{make(1)} works it cannot properly support distributed
+building and, what is worse, encourages people to write recursive makefiles -- which
+makes the system slower and further cripples what little notion \tt{make(1)} has of a
+dependency graph. Based on this, we outlined some ambitious design goals:
+\\
+\begin{itemize}
+  \item PBS should not be slower than \tt{make(1)}.
+  \item PBS should support hierarchical build systems by design.
+  \item PBS should have a simple but powerful rule syntax.
+  \item Pbsfiles should be executable Perl code, and allow arbitrary
+    Perl code to be included any way you like.
+\end{itemize}
+\\
+\section{Rethinking build systems}
+It may help to stop and think about what a build system should be and do. This isn't
+silly -- the concept of build systems is so strongly associated with \tt{make(1)}
+that most people's idea of what a build system \italic{is} is primarily shaped by what can
+reasonably easily be done with \tt{make(1)}. So let's contemplate the subject.
+\\
+The primary goal of a build system probably isn't \italic{building}. After all, if all
+we wanted it to do was build our stuff, we could probably do with something like:
+\\
+\begin{verbatim}
+  cc -o myprog \$LDFLAGS \$CFLAGS `find src -name ``*.c'' -print` \$LIBS
+\end{verbatim}
+
+and just put that in a simple shell script, together with any special stuff
+that needed to be done.
+\\
+A lot of software could be built this easily, if software was ever written
+in a portable manner, and systems had been compatible (both of which are false, in case
+you wonder). For a large system, it becomes more apparent that the goal may rather be
+\italic{not} to build things, unless we have to.
+\\
+This is the primary purpose of \tt{make(1)}. It takes a set
+of rules describing the dependency relationships between \italic{targets} and
+their \italic{sources}, together with a list of commands to be executed when
+the target needs to be rebuilt. A target is deemed out of date if it doesn't
+exist, or if any of its sources are newer than the target.
+Applying this logic recursively to the sources of a target, this creates a
+dependency tree, and \tt{make(1)} walks it in order, verifying depth first that
+all sources are up to date by comparing the modification time of each target with its
+sources, and executing whatever commands need to be executed to bring its targets
+up to date until the top-level target is finally up to date. Unfortunately, this is
+\italic{all} that make does, save a bunch of string manipulation and variable
+substitution facilities.
+\\
+This may sound great -- the problems with this approach don't become obvious
+until you consider these facts:
+\\
+\begin{itemize}
+  \item Not everything that should be ``built'' is necessarily a file. It could
+    just as well be e.g. the successful return status of a test suite.
+  \item In reality, almost everything that is ever built by any development tool
+    depends on much more than the timestamp of the source files.
+\end{itemize}
+\\
+The first of these can usually easily be overcome by adding a
+command to create an empty file whose timestamp will thus reflect the time
+of the last execution of the ``virtual'' target. In fact, most all versions
+of \tt{make(1)} have special keywords for specifying that some targets aren't
+real files, and which files are intermediate results that should be removed
+if \tt{make(1)} is interrupted etc. But there are many versions of \tt{make(1)}
+-- all incompatible -- so writing portable and robust Makefiles is difficult.
+\\
+The second point is more serious, because \tt{make(1)} has no concept whatsoever
+of dependencies on anything but files while in reality, any reasonably complex
+piece of software (and most other things we use build systems to build) depends
+to a great extent on some kind of \italic{configuration}.
+
+\section{Getting started with PBS}
+First of all, PBS is really a Perl API, so knowing a bit of Perl will help.
+But don't be intimidated by this if you don't -- you can write Pbsfiles
+using the rule syntax of PBS without knowing you're really writing Perl,
+and it's quite simple too!
+\\
+PBS provides a simple but powerful rule syntax, not quite unlike that of \tt{make(1)},
+and a collection of convenience functions. As we shall see shortly, the bulk of your
+Pbsfiles will really revolve around three easy to use functions. For simple build systems
+these are all you need to know, and you'll already have a build system than does more
+than most people ever bother to try to do with \tt{make(1)}!
+\\

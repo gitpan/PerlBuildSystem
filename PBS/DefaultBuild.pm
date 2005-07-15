@@ -76,7 +76,7 @@ PrintInfo("<= Depend done [$package_alias/$PBS::PBS::Pbs_call_depth/$PBS::Depend
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
-return() if(DEPEND_ONLY == $build_type) ;
+return(BUILD_SUCCESS, 'Dependended successfuly') if(DEPEND_ONLY == $build_type) ;
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -191,6 +191,7 @@ my $check_failed = $@ ;
 
 RunPluginSubs('PostDependAndCheck', $pbs_config, $dependency_tree, $inserted_nodes, \@build_sequence, $build_node) ;
 
+#~ return(BUILD_FAILED, $check_failed) if $check_failed ;
 die $check_failed if $check_failed ;
 
 #-------------------------------------------------------------------------------
@@ -198,7 +199,7 @@ die $check_failed if $check_failed ;
 
 $dependency_tree->{__BUILD_SEQUENCE} = \@build_sequence ;
 
-return(\@build_sequence) if(DEPEND_AND_CHECK == $build_type) ;
+return(BUILD_SUCCESS, 'Generated build sequence', \@build_sequence) if(DEPEND_AND_CHECK == $build_type) ;
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -276,7 +277,7 @@ else
 RunPluginSubs('CreateDump', $pbs_config, $dependency_tree, $inserted_nodes, \@build_sequence, $build_node) ;
 RunPluginSubs('CreateLog', $pbs_config, $dependency_tree, $inserted_nodes, \@build_sequence, $build_node) ;
 
-die "BUILD_FAILED" unless($build_result == BUILD_SUCCESS) ;
+return($build_result, $build_message) ;
 }
 
 #-------------------------------------------------------------------------------

@@ -3,7 +3,7 @@
 package PBS::ProgressBar;
 
 # Nadim Khemir
-# this is a slightly modified Term ::ProgressBar that allows me to color the progress bar
+# this is a slightly modified Term::ProgressBar that allows me to color the progress bar
 # the author of the original module didn't want to include the 6 lines changes so I hijacked his module ;-)
 #
 
@@ -18,20 +18,20 @@ package PBS::ProgressBar;
 #         If name is wider than term, trim name
 #         Don't update progress bar on new?
 
-=head1	NAME
+=head1 NAME
 
-Term::ProgressBar - provide a progress meter on a standard terminal
+PBS::ProgressBar - provide a progress meter on a standard terminal
 
 =head1	SYNOPSIS
 
-  use Term::ProgressBar;
+  use PBS::ProgressBar;
 
-  $progress = Term::ProgressBar->new ({count => $count});
+  $progress = PBS::ProgressBar->new ({count => $count});
   $progress->update ($so_far);
 
 =head1	DESCRIPTION
 
-Term::ProgressBar provides a simple progress bar on the terminal, to let the
+PBS::ProgressBar provides a simple progress bar on the terminal, to let the
 user know that something is happening, roughly how much stuff has been done,
 and maybe an estimate at how long remains.
 
@@ -62,11 +62,11 @@ bar for the same width.
 
   #!/usr/bin/perl
 
-  use Term::ProgressBar 2.00;
+  use PBS::ProgressBar 2.00;
 
   use constant MAX => 100_000;
 
-  my $progress = Term::ProgressBar->new(MAX);
+  my $progress = PBS::ProgressBar->new(MAX);
 
   for (0..MAX) {
     my $is_power = 0;
@@ -90,7 +90,7 @@ distribution set (it is not installed as part of the module).
 
 =head2 A smoother bar update
 
-  my $progress = Term::ProgressBar->new($max);
+  my $progress = PBS::ProgressBar->new($max);
 
   for (0..$max) {
     my $is_power = 0;
@@ -114,7 +114,7 @@ distribution set (it is not installed as part of the module.
 
 =head2 A (much) more efficient update
 
-  my $progress = Term::ProgressBar->new({name => 'Powers', count => $max, remove => 1});
+  my $progress = PBS::ProgressBar->new({name => 'Powers', count => $max, remove => 1});
   $progress->minor(0);
   my $next_update = 0;
 
@@ -148,7 +148,7 @@ distribution set (it is not installed as part of the module.
 
 =head2 Using Completion Time Estimation
 
-  my $progress = Term::ProgressBar->new({name  => 'Powers',
+  my $progress = PBS::ProgressBar->new({name  => 'Powers',
                                          count => $max,
                                          ETA   => linear, });
   $progress->max_update_rate(1);
@@ -338,7 +338,7 @@ Z<>
 
 =head2 new
 
-Create & return a new Term::ProgressBar instance.
+Create & return a new PBS::ProgressBar instance.
 
 =over 4
 
@@ -412,12 +412,12 @@ and completion estimated linearly.
 
 =item EXAMPLES
 
-  my $progress = Term::ProgressBar->new(100); # count from 1 to 100
-  my $progress = Term::ProgressBar->new({ count => 100 }); # same
+  my $progress = PBS::ProgressBar->new(100); # count from 1 to 100
+  my $progress = PBS::ProgressBar->new({ count => 100 }); # same
 
   # Count to 200 thingies, outputting to stdout instead of stderr,
   # prefix bar with 'thingy'
-  my $progress = Term::ProgressBar->new({ count => 200,
+  my $progress = PBS::ProgressBar->new({ count => 200,
                                           fh    => \*STDOUT,
                                           name  => 'thingy' });
 
@@ -442,7 +442,7 @@ sub init {
   my $target;
 
   croak
-    sprintf("Term::ProgressBar::new We don't handle this many arguments: %d",
+    sprintf("PBS::ProgressBar::new We don't handle this many arguments: %d",
             scalar @_)
     if @_ != 1;
 
@@ -457,10 +457,10 @@ sub init {
 
   if ( my @bad = grep ! exists DEFAULTS->{$_}, keys %config )  {
     croak sprintf("Input parameters (%s) to %s not recognized\n",
-                  join(':', @bad), 'Term::ProgressBar::new');
+                  join(':', @bad), 'PBS::ProgressBar::new');
   }
 
-  croak "Target count required for Term::ProgressBar new\n"
+  croak "Target count required for PBS::ProgressBar new\n"
     unless defined $target;
 
   $config{$_} = DEFAULTS->{$_}
@@ -550,7 +550,7 @@ The final target.  Updates are measured in terms of this.  Changes will have
 no effect until the next update, but the next update value should be relative
 to the new target.  So
 
-  $p = Term::ProgressBar({count => 20});
+  $p = PBS::ProgressBar({count => 20});
   # Halfway
   $p->update(10);
   # Double scale
@@ -579,7 +579,7 @@ Default: set.  If unset, no minor scale will be calculated or updated.
 
 Minor characters are used on the progress bar to give the user the idea of
 progress even when there are so many more tasks than the terminal is wide that
-the granularity would be too great.  By default, Term::ProgressBar makes a
+the granularity would be too great.  By default, PBS::ProgressBar makes a
 guess as to when minor characters would be valuable.  However, it may not
 always guess right, so this method may be called to force it one way or the
 other.  Of course, the efficiency saving is minimal unless the client is

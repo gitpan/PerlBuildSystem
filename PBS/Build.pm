@@ -257,8 +257,8 @@ for my $node (@$build_sequence)
 		{
 		if($build_result == BUILD_FAILED)
 			{
-			$failed_but_no_stop_set++ ;
 			last unless $pbs_config->{NO_STOP} ;
+			$failed_but_no_stop_set++ ;
 			}
 		}
 	}

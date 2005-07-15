@@ -33,7 +33,6 @@ PBS/Check.pm
 PBS/Cyclic.pm
 PBS/Config.pm
 PBS/Constants.pm
-PBS/Creator.pm
 PBS/DefaultBuild.pm
 PBS/Debug.pm
 PBS/Depend.pm
@@ -52,6 +51,7 @@ PBS/PBSConfigSwitches.pm
 PBS/Plugin.pm
 PBS/ProgressBar.pm
 PBS/Rules.pm
+PBS/Rules/Creator.pm
 PBS/Rules/Builders.pm
 PBS/Rules/Dependers.pm
 PBS/Rules/Dependers/Subpbs.pm
@@ -66,14 +66,31 @@ PBS/Information.pm
 PBS/Log.pm
 PBS/Warp1_5.pm
 
-doc/1/Pbsfile.pl
-doc/1/hello.c
-doc/1/hello.c.depend
 doc/pbs_users_guide.pod
 doc/reference_manual.pod
 doc/PBS_short_introduction.pod
-doc/cookbook.pod
+doc/documenting_pbsfile.pod
 doc/how_fast_is_it
+
+doc/Cookbook/cookbook.pod
+doc/Cookbook/C/Pbsfile.pl
+doc/Cookbook/C/hello_world.c
+
+doc/Cookbook/Java/simple_java/HelloWorld.java
+doc/Cookbook/Java/simple_java/Pbsfile.pl
+
+doc/Cookbook/Java/simple_java_2/Main.java
+doc/Cookbook/Java/simple_java_2/Pbsfile.pl
+doc/Cookbook/Java/simple_java_2/Print.java
+
+doc/Cookbook/Java/simple_java_jar/Main.java
+doc/Cookbook/Java/simple_java_jar/Print.java
+doc/Cookbook/Java/simple_java_jar/Pbsfile.pl
+doc/Cookbook/Java/simple_java_jar/Manifest.txt
+
+doc/Cookbook/Java/simple_java_jni/HelloWorldNative.c
+doc/Cookbook/Java/simple_java_jni/HelloWorldNative.java
+doc/Cookbook/Java/simple_java_jni/Pbsfile.pl
 
 doc/pnw2004/README
 doc/pnw2004/a_pbs_slide.pod
@@ -87,6 +104,9 @@ doc/pnw2004/TODO
 doc/pnw2004/cyclic2.png
 doc/pnw2004/trigger.png
 doc/pnw2004/examples/package_fiddle.pl
+
+doc/pbsum.tex
+doc/user_manual.pod
 
 PBSLib/Builders/MultiNodeBuilder.pm
 
@@ -169,6 +189,23 @@ Pbsfiles/trigger/trigger.pl
 Pbsfiles/post_build/post_build.pl
 
 Pbsfiles/remote_fork/Pbsfile.pl
+
+Pbsfiles/subpbs_space/Pbsfile.pl
+Pbsfiles/subpbs_space/subpbs.pl
+
+Pbsfiles/subpbs_locate/Pbsfile.pl
+Pbsfiles/subpbs_locate/sd1/d1/d11/Pbsfile.pl
+Pbsfiles/subpbs_locate/sd1/d1/d12/Pbsfile.pl
+Pbsfiles/subpbs_locate/sd1/d1/Pbsfile.pl
+Pbsfiles/subpbs_locate/sd1/d2/d21/Pbsfile.pl
+Pbsfiles/subpbs_locate/sd1/d2/Pbsfile.pl
+Pbsfiles/subpbs_locate/sd1/Pbsfile.pl
+Pbsfiles/subpbs_locate/sd2/d2/d21/Pbsfile.pl
+Pbsfiles/subpbs_locate/sd2/d2/Pbsfile.pl
+Pbsfiles/subpbs_locate/sd2/d3/Pbsfile.pl
+Pbsfiles/subpbs_locate/sd2/Pbsfile.pl
+Pbsfiles/subpbs_locate/d1/d11/Pbsfile.pl
+Pbsfiles/subpbs_locate/d1/Pbsfile.pl
 
 Pbsfiles/s/s_a1.pl
 Pbsfiles/s/s_b1.pl

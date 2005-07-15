@@ -1,4 +1,3 @@
-
 package PBS::Build::Threaded ;
 use PBS::Debug ;
 
@@ -274,7 +273,7 @@ __END__
 
 =head1 NAME
 
-PBS::ThreadedBuild  -
+PBS::Build::Threaded -
 
 =head1 DESCRIPTION
 

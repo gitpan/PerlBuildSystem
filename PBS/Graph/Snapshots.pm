@@ -1,4 +1,3 @@
-
 package PBS::Graph::Snapshots ;
 use PBS::Debug ;
 
@@ -237,7 +236,7 @@ for my $time (@times)
 __END__
 =head1 NAME
 
-PBS::GraphSnapshots  -
+PBS::Graph::Snapshots -
 
 =head1 DESCRIPTION
 
