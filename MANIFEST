@@ -65,6 +65,7 @@ PBS/Wizard.pm
 PBS/Information.pm
 PBS/Log.pm
 PBS/Warp1_5.pm
+PBS/Warp1_6.pm
 
 doc/pbs_users_guide.pod
 doc/reference_manual.pod

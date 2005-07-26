@@ -17,7 +17,7 @@ our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw() ;
-our $VERSION = '0.34' ;
+our $VERSION = '0.35' ;
 
 use PBS::PBSConfig ;
 use PBS::PBS ;
@@ -144,7 +144,19 @@ if(@$targets)
 
 	eval
 		{
-		if(defined $pbs_config->{USE_WARP1_5_FILE})
+		if(defined $pbs_config->{USE_WARP1_6_FILE})
+			{
+			eval "use PBS::Warp1_6 ;" ;
+			die $@ if $@ ;
+			
+			($build_result, $build_message, $dependency_tree, $inserted_nodes)
+				= PBS::Warp1_6::WarpPbs
+					(
+					  $targets
+					, $pbs_config
+					) ;
+			}
+		elsif(defined $pbs_config->{USE_WARP1_5_FILE})
 			{
 			eval "use PBS::Warp1_5 ;" ;
 			die $@ if $@ ;

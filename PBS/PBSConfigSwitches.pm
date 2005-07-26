@@ -1010,6 +1010,10 @@ EOT
 		, "use warp to speed up PBS. warp file is build if necessary."
 		, ''
 		
+	, 'warp1_6'             => \$pbs_config->{USE_WARP1_6_FILE}
+		, "use warp to speed up PBS. warp file is build if necessary."
+		, ''
+		
 	, 'no_warp'             => \$pbs_config->{NO_WARP}
 		, "no warp will be used."
 		, ''

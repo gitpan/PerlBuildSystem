@@ -10,7 +10,7 @@ are located. -tda adds the pbsfile to the dependency graph dump.
 =cut
 
 
-AddRule 'all', [all => 'd1', 'd2', 'd3'] ;
+AddRule 'all', ['all' => 'd1', 'd2', 'd3'] ;
 
 AddSubpbsRule('d1', 'd1', 'd1/Pbsfile.pl', 'd1') ;
 AddSubpbsRule('d2', 'd2', 'd2/Pbsfile.pl', 'd2') ;

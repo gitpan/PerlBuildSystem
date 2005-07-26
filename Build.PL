@@ -46,6 +46,7 @@ PBS/Wizard.pm
 PBS/Information.pm
 PBS/Log.pm
 PBS/Warp1_5.pm
+PBS/Warp1_6.pm
 );
 
 my $build = Module::Build->new
@@ -74,6 +75,7 @@ my $build = Module::Build->new
 		Term::ProgressBar   => '0',
 		File::Spec          => '0',
 		File::Slurp         => '0',
+		Math::Bezier        => '0',
 		File::Copy::Recursive => '0',
 		
 		#GraphViz            => '0',

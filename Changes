@@ -1,6 +1,13 @@
 Revision history for PBS (Perl Build System).
 All changes by Nadim Khemir (NKH) except when otherwise stated.
 
+0.35  Tue 26 Jul 2005
+	STARTED: warp 1.6
+	ADDED: check rotor
+	FIXED: Pbsfile locator warning in the right color
+	ADDED: Pbsfile locator warning show origin when -o is given to pbs
+	FIXED: New PBS::GraphViz module so tests would pass
+
 0.34  Fri 15 Jul 2005
 	ADDED: some sanity checking and warnings when using CREATORs
 	REMOVED: -hu -hr

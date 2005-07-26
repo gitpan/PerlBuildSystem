@@ -1,6 +1,25 @@
 Perl Build System
 =================
 
+#warning about using absolute Pbsfile path should use same color as relocation warning
+#both warning should tell where the warning comes from
+#Give feed back while checking
+
+AddGetConfigList that dereferences list config variables 
+
+warp 1.6
+	# source files don't trigger
+	add subpbsfile triggering (trigger that have that as original package??)
+	add shadow nodes
+	add test
+	what happends when a source node becomes a generated nodes
+	what happends when a source node is removed but is in the cache
+	The load package changes from run to run and can't be used as unique index
+	#add some verbosity switch
+		show md5 diff or not
+		show the message for the node or not
+		show a dump of the pbsfil dependencoes or not
+	
 Ignoring Builder from rule: #10 'eca_subdirs'.
 	=> give more details in dpb mode
 	

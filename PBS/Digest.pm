@@ -134,6 +134,9 @@ for (@files)
 		
 		# warp need this data to find out if it's been made invalid by aPbs filechange
 		$package_dependencies{__PBS_WARP_DATA}{$_} = $package_dependencies{$package}{$file_name} ;
+		
+		# warp 1.6 specific
+		$package_dependencies{'__WARP1_6'}{$package}{$_} = $package_dependencies{$package}{$file_name} ;
 		}
 	else
 		{
@@ -164,6 +167,9 @@ for (@files)
 		
 		# warp need this data to find out if it's been made invalid by aPbsfile change
 		$package_dependencies{__PBS_WARP_DATA}{$file_name} = $package_dependencies{$package}{$lib_name} ;
+		
+		#warp 1.6
+		$package_dependencies{'__WARP1_6'}{$package}{$file_name} = $package_dependencies{$package}{$lib_name} ;
 		}
 	else
 		{
@@ -534,6 +540,9 @@ for my $name (keys %{$force_digest{$package}})
 		last ;
 		}
 	}
+
+# wap 6 info caching
+$node->{__HAS_DIGEST} = $generate_digest ;
 
 return($generate_digest) ;
 }
@@ -945,6 +954,7 @@ else
 sub CheckFilesMD5
 {
 my $files_md5 = shift ;
+my $display_error = shift ;
 
 while (my($file, $md5) = each(%$files_md5))
 	{
@@ -954,13 +964,13 @@ while (my($file, $md5) = each(%$files_md5))
 		{
 		if($md5 ne $file_md5)
 			{
-			PrintError("Different md5 for file '$file'.\n") ;
+			PrintError("Different md5 for file '$file'.\n") if $display_error;
 			return(0) ;
 			}
 		}
 	else
 		{
-		PrintError("Can't open '$file' to compute MD5 digest: $!\n") ;
+		PrintError("Can't open '$file' to compute MD5 digest: $!\n") if $display_error;
 		return(0) ;
 		}
 	}

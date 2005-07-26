@@ -32,6 +32,7 @@ use PBS::Plugin;
 #-------------------------------------------------------------------------------
 # July 2005, try to figure out how to implement micro warps
 our %used_pbsfiles ;
+our %used_pbsfiles_located ;
 
 sub CreateDependencyTree
 {
@@ -711,8 +712,7 @@ if(0 == $has_dependencies)
 		my $alias_message = '' ;
 		$alias_message = "aliased as '$sub_pbs_hash->{ALIAS}'" if(defined $sub_pbs_hash->{ALIAS}) ;
 		
-		#July 2005 code that generate warning when Pbsfile location is changed
-		$sub_pbs_name = LocatePbsfile($pbs_config, $Pbsfile, $sub_pbs_name) ;
+		$sub_pbs_name = LocatePbsfile($pbs_config, $Pbsfile, $sub_pbs_name, $sub_pbs[0]{RULE}) ;
 		
 		unless(defined $pbs_config->{NO_SUBPBS_INFO})
 			{
@@ -759,16 +759,7 @@ if(0 == $has_dependencies)
 		my $already_inserted_nodes = $inserted_nodes ;
 		$already_inserted_nodes    = {} if(defined $sub_pbs_hash->{LOCAL_NODES}) ;
 		
-		#attemp to micro warp, July 2005
-		unless(exists $used_pbsfiles{$sub_pbs_name})
-			{
-			$used_pbsfiles{$sub_pbs_name} = {} ;
-			}
-			
-		$used_pbsfiles{$Pbsfile}{$sub_pbs_name} = $used_pbsfiles{$sub_pbs_name} ;
-		#attemp to micro warp, July 2005
-		
-		my ($build_result, $build_message, $sub_tree)
+		my ($build_result, $build_message, $sub_tree, $inserted_nodes, $sub_pbs_load_package)
 			= PBS::PBS::Pbs
 				(
 				  $sub_pbs_name
@@ -781,6 +772,26 @@ if(0 == $has_dependencies)
 				, $sub_pbs_config->{PBS_COMMAND}
 				) ;
 						
+		#attempt to micro warp, July 2005 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		#unlocated
+		unless(exists $used_pbsfiles{$sub_pbs_name})
+			{
+			$used_pbsfiles{$sub_pbs_name} = {} ;
+			}
+			
+		$used_pbsfiles{$Pbsfile}{$sub_pbs_name} = $used_pbsfiles{$sub_pbs_name} ;
+		
+		#locate
+		unless(exists $used_pbsfiles_located{$sub_pbs_load_package})
+			{
+			$used_pbsfiles_located{$sub_pbs_load_package} = {} ;
+			}
+			
+		#~ $used_pbsfiles_located{$sub_pbs_load_package}{$sub_pbs_name} = PBS::Digest::GetFileMD5($sub_pbs_name) ;
+		
+		$used_pbsfiles_located{$load_package}{$sub_pbs_load_package} = $used_pbsfiles_located{$sub_pbs_load_package} ;
+		#attempt to micro warp, July 2005 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		
 		# keep this node insertion info
 		$sub_tree->{$sub_node_name}{__INSERTED_AT}{ORIGINAL_INSERTION_DATA} =  $tree->{__INSERTED_AT} ;
 		
@@ -945,13 +956,16 @@ sub LocatePbsfile
 my $pbs_config   = shift ;
 my $Pbsfile      = shift ;
 my $sub_pbs_name = shift ;
+my $rule         = shift ;
+
+my $info = $pbs_config->{ADD_ORIGIN} ? "rule '$rule->{NAME}' at '$rule->{FILE}\:$rule->{LINE}'" : '' ;
 
 my $source_directories = $pbs_config->{SOURCE_DIRECTORIES} ;
 my $sub_pbs_name_stem ;
 
 if(File::Spec->file_name_is_absolute($sub_pbs_name))
 	{
-	PrintDebug "Using absolute subpbs: '$sub_pbs_name'\n" ;
+	PrintWarning "Using absolute subpbs: '$sub_pbs_name' $info.\n" ;
 	}
 else
 	{
@@ -968,14 +982,14 @@ else
 				{
 				if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
 					{
-					PrintDebug "Ignoring pbsfile '$sub_pbs_name' in '$source_directory'\n" ;
+					PrintInfo "Ignoring pbsfile '$sub_pbs_name' in '$source_directory' $info.\n" ;
 					}
 				}
 			else
 				{
 				if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
 					{
-					PrintDebug "Located pbsfile '$sub_pbs_name' in '$source_directory'\n" ;
+					PrintInfo "Located pbsfile '$sub_pbs_name' in '$source_directory' $info.\n" ;
 					}
 					
 				$found_pbsfile = $searched_pbsfile ;
@@ -987,7 +1001,7 @@ else
 			{
 			if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
 				{
-				PrintDebug "Couldn't find pbsfile '$sub_pbs_name' in '$source_directory'\n" ;
+				PrintInfo "Couldn't find pbsfile '$sub_pbs_name' in '$source_directory' $info.\n" ;
 				}
 			}
 		}
@@ -1012,7 +1026,7 @@ else
 		{
 		if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
 			{
-			PrintDebug "Found stem '$sub_pbs_name_stem'.\n" ;
+			PrintInfo "Found stem '$sub_pbs_name_stem'.\n" ;
 			}
 			
 		for my $source_directory (@$source_directories)
@@ -1027,13 +1041,13 @@ else
 					
 					if($relocated_from_stem ne $found_pbsfile)
 						{
-						PrintWarning2("Relocated '$sub_pbs_name_stem' in '$source_directory'.\n") ;
+						PrintWarning2("Relocated '$sub_pbs_name_stem' in '$source_directory' $info.\n") ;
 						}
 					else
 						{
 						if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
 							{
-							PrintDebug("Keeping '$sub_pbs_name_stem' from '$source_directory'.\n") ;
+							PrintInfo "Keeping '$sub_pbs_name_stem' from '$source_directory' $info.\n" ;
 							}
 						}
 						
@@ -1043,7 +1057,7 @@ else
 					{
 					if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
 						{
-						PrintDebug "Ignoring relocation of '$sub_pbs_name_stem' in '$source_directory'\n" ;
+						PrintInfo "Ignoring relocation of '$sub_pbs_name_stem' in '$source_directory' $info.\n" ;
 						}
 					}
 				}
@@ -1051,7 +1065,7 @@ else
 				{
 				if($pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO})
 					{
-					PrintDebug "Couldn't relocate '$sub_pbs_name_stem' in '$source_directory'\n" ;
+					PrintInfo "Couldn't relocate '$sub_pbs_name_stem' in '$source_directory' $info.\n" ;
 					}
 				}
 			}

@@ -22,12 +22,12 @@ use strict;
 use vars qw($AUTOLOAD $VERSION);
 
 use Carp;
-use Graph::Directed;
-use Math::Bezier;
+use Config;
 use IPC::Run qw(run binary);
 
 # This is incremented every time there is a change to the API
-$VERSION = '0.1';
+$VERSION = '2.02';
+
 
 my @nadims_graph_attributes = qw
 					(
@@ -67,11 +67,10 @@ GraphViz - Interface to the GraphViz graphing tool
 
 =head1 DESCRIPTION
 
-This module provides an interface to layout and image generation of
-directed and undirected graphs in a variety of formats (PostScript,
-PNG, etc.) using the "dot", "neato" and "twopi" programs from the
-GraphViz project (http://www.graphviz.org/ or
-http://www.research.att.com/sw/tools/graphviz/).
+This module provides an interface to layout and image generation of directed
+and undirected graphs in a variety of formats (PostScript, PNG, etc.) using the
+"dot", "neato", "twopi", "circo" and "fdp"  programs from the GraphViz project
+(http://www.graphviz.org/ or http://www.research.att.com/sw/tools/graphviz/).
 
 =head2 What is a graph?
 
@@ -153,24 +152,67 @@ prize.
 
 This is the constructor. It accepts several attributes.
 
-The most two important attributes are 'layout' and 'directed'. The
-'layout' attribute determines which layout algorithm GraphViz.pm will
-use. Possible values are: 'dot' (the default GraphViz layout for
-directed graph layouts), 'neato' (for undirected graph layouts -
-spring model) or 'twopi' (for undirected graph layouts - circular).
+  my $g = GraphViz->new();
+  my $g = GraphViz->new(directed => 0);
+  my $g = GraphViz->new(layout => 'neato', ratio => 'compress');
+  my $g = GraphViz->new(rankdir  => 1);
+  my $g = GraphViz->new(width => 8.5, height => 11);
+  my $g = GraphViz->new(width => 30, height => 20,
+			pagewidth => 8.5, pageheight => 11);
+
+The most two important attributes are 'layout' and 'directed'.
+
+=over
+
+=item layout
+
+The 'layout' attribute determines which layout algorithm GraphViz.pm will
+use. Possible values are: 
+
+=over
+
+=item dot
+
+The default GraphViz layout for directed graph layouts
+
+=item neato
+
+For undirected graph layouts - spring model
+
+=item twopi
+
+For undirected graph layouts - radial
+
+=item circo
+
+For undirected graph layouts - circular
+
+=item fdp
+
+For undirected graph layouts - force directed spring model
+
+=back
+
+=item directed
 
 The 'directed' attribute, which defaults to 1 (true) specifies
 directed (edges have arrows) graphs. Setting this to zero produces
 undirected graphs (edges do not have arrows).
 
+=item rankdir
+
 Another attribute 'rankdir' controls the direction the nodes are linked
 together. If true it will do left->right linking rather than the
 default up-down linking.
+
+=item width, height
 
 The 'width' and 'height' attributes control the size of the bounding
 box of the drawing in inches. This is more useful for PostScript
 output as for raster graphic (such as PNG) the pixel dimensions
 can not be set, although there are generally 96 pixels per inch.
+
+=item pagewidth, pageheight
 
 The 'pagewidth' and 'pageheight' attributes set the PostScript
 pagination size in inches. That is, if the image is larger than the
@@ -178,21 +220,20 @@ page then the resulting PostScript image is a sequence of pages that
 can be tiled or assembled into a mosaic of the full image. (This only
 works for PostScript output).
 
-  my $g = GraphViz->new();
-  my $g = GraphViz->new(directed => 0);
-  my $g = GraphViz->new(layout => 'neato');
-  my $g = GraphViz->new(rankdir  => 1);
-  my $g = GraphViz->new(width => 8.5, height => 11);
-  my $g = GraphViz->new(width => 30, height => 20,
-			pagewidth => 8.5, pageheight => 11);
+
+=item concentrate
 
 The 'concentrate' attribute controls enables an edge merging technique
 to reduce clutter in dense layouts of directed graphs. The default is
 not to merge edges.
 
+=item random_start
+
 For undirected graphs, the 'random_start' attribute requests an
 initial random placement for the graph, which may give a better
 result. The default is not random.
+
+=item epsilon
 
 For undirected graphs, the 'epsilon' attribute decides how long the
 graph solver tries before finding a graph layout. Lower numbers allow
@@ -200,13 +241,113 @@ the solver to fun longer and potentially give a better layout. Larger
 values can decrease the running time but with a reduction in layout
 quality. The default is 0.1.
 
+=item overlap
+
+The 'overlap' option allows you to set layout behavior for graph nodes
+that overlap.  (From GraphViz documentation:)
+
+Determines if and how node overlaps should be removed.
+
+
+=over
+
+=item true
+
+(the default) overlaps are retained. 
+
+=item scale
+
+overlaps are removed by uniformly scaling in x and y. 
+
+=item false 
+
+If the value converts to "false", node overlaps are removed by a Voronoi-based technique.
+
+=item scalexy
+
+x and y are separately scaled to remove overlaps.
+
+=item orthoxy, orthxy
+
+If the value is "orthoxy" or "orthoyx", overlaps are moved by optimizing two
+constraint problems, one for the x axis and one for the y. The suffix indicates
+which axis is processed first.
+
+B<NOTE>: The methods related to "orthoxy" and "orthoyx" are still evolving. The
+semantics of these may change, or these methods may disappear altogether. 
+
+=item compress
+
+If the value is "compress", the layout will be scaled down as much as possible
+without introducing any overlaps.
+
+=back
+
+Except for the Voronoi method, all of these transforms preserve the orthogonal
+ordering of the original layout. That is, if the x coordinates of two nodes are
+originally the same, they will remain the same, and if the x coordinate of one
+node is originally less than the x coordinate of another, this relation will
+still hold in the transformed layout. The similar properties hold for the y
+coordinates.
+
+=item no_overlap
+
 The 'no_overlap' overlap option, if set, tells the graph solver to not
-overlap the nodes.
+overlap the nodes.  Deprecated,  Use 'overlap' => 'false'.
+
+=item ratio
+
+The 'ratio' option sets the aspect ratio (drawing height/drawing width) for the
+drawing. Note that this is adjusted before the size attribute constraints are
+enforced.  Default value is C<fill>.
+
+=over
+
+=item numeric
+
+If ratio is numeric, it is taken as the desired aspect ratio. Then, if the
+actual aspect ratio is less than the desired ratio, the drawing height is
+scaled up to achieve the desired ratio; if the actual ratio is greater than
+that desired ratio, the drawing width is scaled up.
+
+=item fill
+
+If ratio = C<fill> and the size attribute is set, node positions are scaled,
+separately in both x and y, so that the final drawing exactly fills the
+specified size.
+
+=item compress
+
+If ratio = C<compress> and the size attribute is set, dot attempts to compress
+the initial layout to fit in the given size. This achieves a tighter packing of
+nodes but reduces the balance and symmetry. This feature only works in dot.
+
+=item expand
+
+If ratio = C<expand> the size attribute is set, and both the width and the
+height of the graph are less than the value in size, node positions are scaled
+uniformly until at least one dimension fits size exactly. Note that this is
+distinct from using size as the desired size, as here the drawing is expanded
+before edges are generated and all node and text sizes remain unchanged.
+
+=item auto
+
+If ratio = C<auto> the page attribute is set and the graph cannot be drawn on a
+single page, then size is set to an ``ideal'' value. In particular, the size in
+a given dimension will be the smallest integral multiple of the page size in
+that dimension which is at least half the current size. The two dimensions are
+then scaled independently to the new size. This feature only works in dot. 
+
+=back
+
+=item bgcolor
 
 The 'bgcolor' option sets the background colour. A colour value may be
 "h,s,v" (hue, saturation, brightness) floating point numbers between 0
 and 1, or an X11 color name such as 'white', 'black', 'red', 'green',
 'blue', 'yellow', 'magenta', 'cyan', or 'burlywood'.
+
+=item node,edge,graph
 
 The 'node', 'edge' and 'graph' attributes allow you to specify global
 node, edge and graph attributes (in addition to those controlled by
@@ -215,6 +356,8 @@ reference containing the corresponding key-value pairs. For example,
 to make all nodes box-shaped (unless explicity given another shape):
 
   my $g = GraphViz->new(node => {shape => 'box'});
+
+=back
 
 =cut
 
@@ -235,7 +378,6 @@ sub new {
   $self->{NODES} = {};
   $self->{NODELIST} = [];
   $self->{EDGES} = [];
-  $self->{GRAPH} = Graph::Directed->new();
 
   if (exists $config->{directed}) {
       $self->{DIRECTED} = $config->{directed};
@@ -269,7 +411,11 @@ sub new {
 
   $self->{SORT} = $config->{sort} if (exists $config->{sort});
 
-  $self->{NO_OVERLAP} = $config->{no_overlap} if (exists $config->{no_overlap});
+  $self->{OVERLAP} = $config->{overlap} if (exists $config->{overlap});
+  # no_overlap overrides overlap setting.
+  $self->{OVERLAP} = 'false' if (exists $config->{no_overlap});
+
+  $self->{RATIO} = $config->{ratio} || 'fill';
 
   # Global node, edge and graph attributes
   $self->{NODE_ATTRS} = $config->{node} if (exists $config->{node});
@@ -382,6 +528,18 @@ cluster. An empty string means not clustered.
   $g->add_node('London', cluster => 'Europe');
   $g->add_node('Amsterdam', cluster => 'Europe');
 
+Clusters can also take a hashref so that you can set attributes:
+
+  my $eurocluster = {
+    name      =>'Europe',
+    style     =>'filled',
+    fillcolor =>'lightgray',
+    fontname  =>'arial',
+    fontsize  =>'12',
+  };
+  $g->add_node('London', cluster => $eurocluster, @default_attrs);
+
+
 Nodes can be located in the same rank (that is, at the same level in
 the graph) with the "rank" attribute. Nodes with the same rank value
 are ranked together.
@@ -433,6 +591,10 @@ sub add_node {
     } else {
       $node->{label} = $node->{name};
     }
+  } else {
+    $node->{label} =~ s#([|<>\[\]{}"])#\\$1#g unless $node->{shape} &&
+      ($node->{shape} eq 'record' || ($node->{label} =~ /^<</ && $node->{shape} eq
+				      'plaintext'));
   }
 
   delete $node->{cluster}
@@ -460,11 +622,6 @@ sub add_node {
   }
 
   $self->{CODES}->{$node->{_code}} = $node->{name};
-  $self->{GRAPH}->add_vertex($node->{name});
-
-  foreach my $key (keys %$node) {
-    $self->{GRAPH}->set_attribute($key, $node->{name}, $node->{$key});
-  }
 
   # Add the node to the nodelist, which contains the names of
   # all the nodes in the order that they were inserted (but only
@@ -605,31 +762,19 @@ sub add_edge {
     return;
   }
 
+  my $from = $edge->{from};
+  my $to = $edge->{to};
+  $self->add_node($from) unless exists $self->{NODES}->{$from};
+  $self->add_node($to) unless exists $self->{NODES}->{$to};
+
   push @{$self->{EDGES}}, $edge; # should remove!
-
-  # The Graph module is strict about the nodes existing before we add
-  # edges, but graphviz is not, so we check. Any nodes that don't
-  # exist, we create with all the default attributes.
-  unless ($self->{GRAPH}->has_vertex($edge->{from})) {
-    $self->add_node($edge->{from});
-  }
-  unless ($self->{GRAPH}->has_vertex($edge->{to})) {
-    $self->add_node($edge->{to});
-  }
-
-  $self->{GRAPH}->add_edge($edge->{from} => $edge->{to});
-
-  foreach my $key (keys %$edge) {
-    $self->{GRAPH}->set_attribute($key, $edge->{from}, $edge->{to}, $edge->{$key});
-  }
-
 }
 
 
 =head2 as_canon, as_text, as_gif etc. methods
 
 There are a number of methods which generate input for dot / neato /
-twopi or output the graph in a variety of formats.
+twopi / circo / fdp or output the graph in a variety of formats.
 
 Note that if you pass a filename, the data is written to that
 filename. If you pass a filehandle, the data will be streamed to the
@@ -653,9 +798,16 @@ the output to if you want your application to be portable to Win32.
 
 =over 4
 
+=item as_debug
+
+The as_debug method returns the dot file which we pass to GraphViz. It
+does not lay out the graph. This is mostly useful for debugging.
+
+  print $g->as_debug;
+
 =item as_canon
 
-The as_canon method returns the canonical dot / neato / twopi file
+The as_canon method returns the canonical dot / neato / twopi / circo / fdp  file
 which corresponds to the graph. It does not layout the graph - every
 other as_* method does.
 
@@ -676,7 +828,7 @@ other as_* method does.
 =item as_text
 
 The as_text method returns text which is a layed-out dot / neato /
-twopi format file.
+twopi / circo / fdp format file.
 
   print $g->as_text;
 
@@ -760,17 +912,24 @@ Returns a string which contains a layed-out Windows BMP-format file.
 
   print $g->as_wbmp;
 
-=item as_cmap
+=item as_cmap  (deprecated)
 
 Returns a string which contains a layed-out HTML client-side image map
-format file.
+format file.   Use as_cmpax instead.
 
   print $g->as_cmap;
 
-=item as_ismap
+=item as_cmapx
+
+Returns a string which contains a layed-out HTML HTML/X client-side image map
+format file.
+
+  print $g->as_cmapx;
+
+=item as_ismap (deprecated)
 
 Returns a string which contains a layed-out old-style server-side
-image map format file.
+image map format file.  Use as_imap instead.
 
   print $g->as_ismap;
 
@@ -812,6 +971,13 @@ Returns a string which contains a layed-out SVG-format file.
 
   print $g->as_svg;
 
+=item as_svgz
+
+Returns a string which contains a layed-out SVG-format file
+that is compressed.
+
+  print $g->as_svgz;
+
 =item as_plain
 
 Returns a string which contains a layed-out simple-format file.
@@ -839,7 +1005,7 @@ sub AUTOLOAD {
     $name = "as_dot";
   }
 
-  if ($name =~ /^as_(ps|hpgl|pcl|mif|pic|gd|gd2|gif|jpeg|png|wbmp|cmap|ismap|imap|vrml|vtx|mp|fig|svg|dot|canon|plain)$/) {
+  if ($name =~ /^as_(ps|hpgl|pcl|mif|pic|gd|gd2|gif|jpeg|png|wbmp|cmapx?|ismap|imap|vrml|vtx|mp|fig|svgz?|dot|canon|plain)$/) {
     my $data = $self->_as_generic('-T' . $1, $self->_as_debug, $output);
     return $data;
   }
@@ -848,107 +1014,63 @@ sub AUTOLOAD {
 }
 
 
-# Undocumented feature: return a Graph object
-sub as_graph {
-  my($self, $conf) = @_;
-  my $graph = $self->{GRAPH};
-
-  return $self->_parse_dot($self->_as_debug);
-}
-
-
-sub _parse_dot {
-  my($self, $dot) = @_;
-  my $graph = $self->{GRAPH};
-
-  my $out;
-  my $program = $self->{LAYOUT};
-
-  run [$program, '-Tplain'], \$dot, \$out;
-
-  my($aspect, $bbw, $bbh);
-
-  foreach my $line (split /\n/, $out) {
-#    print "# $line\n";
-
-    my($type, @values) = split /\s+/, $line;
-    if ($type eq 'graph') {
-      ($aspect, $bbw, $bbh) = @values;
-    } elsif ($type eq 'node') {
-      my($node, $x, $y, $w, $h) = @values;
-      $x /= $bbw;
-      $y /= $bbh;
-      $w /= $bbw;
-      $h /= $bbh;
-      $node = $self->{CODES}->{$node};
-#      print "#  $node  ($x, $y) x ($w, $h)\n";
-      $graph->set_attribute('x', $node, $x);
-      $graph->set_attribute('y', $node, $y);
-      $graph->set_attribute('w', $node, $w);
-      $graph->set_attribute('h', $node, $h);
-    } elsif ($type eq 'edge') {
-      my($from, $to, $n, @points) = @values;
-
-      $from = $self->{CODES}->{$from};
-        $to = $self->{CODES}->{$to};
-
-      @points = splice(@points, 0, $n * 2);
-
-      my @newpoints;
-
-      while (@points) {
-	my ($x, $y) = splice(@points, 0, 2);
-	$x /= $bbw;
-	$y /= $bbh;
-	push @newpoints, $x, $y;
-      }
-
-      my $bezier = Math::Bezier->new(@newpoints);
-#      print "#  $from->$to: @newpoints\n";
-      $graph->set_attribute('bezier', $from, $to, $bezier);
-    }
-#    next unless $type eq 'node';
-  }
-
-  return $graph;
-}
-
-
 # Return the main dot text
+sub as_debug {
+  my $self = shift;
+  return $self->_as_debug(@_); 
+}
+
 sub _as_debug {
   my $self = shift;
 
+  my $dot;
+
   my $graph_type = $self->{DIRECTED} ? 'digraph' : 'graph';
 
-  my $dot .= "$graph_type test {\n";
+  $dot .= "$graph_type test {\n";
 
   # the direction of the graph
   $dot .= "\trankdir=LR;\n" if $self->{RANK_DIR};
 
   # the size of the graph
-  $dot .= "\tsize=\"" . $self->{WIDTH} . "," . $self->{HEIGHT} ."\";\n\tratio=fill\n" if $self->{WIDTH} && $self->{HEIGHT};
-  $dot .= "\tpage=\"" . $self->{PAGEWIDTH} . "," . $self->{PAGEHEIGHT} ."\";\n"       if $self->{PAGEWIDTH} && $self->{PAGEHEIGHT};
+  $dot .= "\tsize=\"" . $self->{WIDTH} . "," . $self->{HEIGHT} ."\";\n" if $self->{WIDTH} && $self->{HEIGHT};
+  $dot .= "\tpage=\"" . $self->{PAGEWIDTH} . "," . $self->{PAGEHEIGHT} ."\";\n" if $self->{PAGEWIDTH} && $self->{PAGEHEIGHT};
+  
+  # Ratio setting
+  $dot .= "\tratio=\"" . $self->{RATIO} . "\";\n";
 
-  $dot .= "\tconcentrate=true;\n"                     if $self->{CONCENTRATE};
-  $dot .= "\tepsilon=" . $self->{EPSILON} . ";\n"     if $self->{EPSILON};
-  $dot .= "\tstart=rand;\n"                           if $self->{RANDOM_START};
-  $dot .= "\toverlap=false;\n"                        if $self->{NO_OVERLAP};
-  $dot .= "\tbgcolor=\"" . $self->{BGCOLOR} . "\";\n" if $self->{BGCOLOR};
+  # edge merging
+  $dot .= "\tconcentrate=true;\n" if $self->{CONCENTRATE};
+
+  # epsilon
+  $dot .= "\tepsilon=" . $self->{EPSILON} . ";\n" if $self->{EPSILON};
+
+  # random start
+  $dot .= "\tstart=rand;\n" if $self->{RANDOM_START};
+
+  # overlap
+  $dot .= "\toverlap=\"" . $self->{OVERLAP} . "\";\n" if $self->{OVERLAP};
 
   #nadim
   for (@nadims_graph_attributes)
 	  {
 	  $dot .= "\t$_=\"" . $self->{uc($_)} . "\";\n" if $self->{uc($_)};
 	  }
+	  
+  # color, bgcolor
+  $dot .= "\tbgcolor=\"" . $self->{BGCOLOR} . "\";\n" if $self->{BGCOLOR};
 
   # Global node, edge and graph attributes
-  $dot .= "\tnode" . _attributes($self->{NODE_ATTRS}) . ";\n"    if exists($self->{NODE_ATTRS});
-  $dot .= "\tedge" . _attributes($self->{EDGE_ATTRS}) . ";\n"    if exists($self->{EDGE_ATTRS});
-  $dot .= "\tgraph" . _attributes($self->{GRAPH_ATTRS}) . ";\n"  if exists($self->{GRAPH_ATTRS});
+  $dot .= "\tnode" . _attributes($self->{NODE_ATTRS}) . ";\n"
+    if exists($self->{NODE_ATTRS});
+  $dot .= "\tedge" . _attributes($self->{EDGE_ATTRS}) . ";\n"
+    if exists($self->{EDGE_ATTRS});
+  $dot .= "\tgraph" . _attributes($self->{GRAPH_ATTRS}) . ";\n"
+    if exists($self->{GRAPH_ATTRS});
 
-  #-----------------------------------------------------------------------
-
-  my (%clusters, %clusters_edge) ;
+  my %clusters = ();
+  my %cluster_nodes = ();
+  my %clusters_edge = ();
 
   my $arrow = $self->{DIRECTED} ? ' -> ' : ' -- ';
 
@@ -956,63 +1078,72 @@ sub _as_debug {
   my @nodelist = @{$self->{NODELIST}};
   @nodelist = sort @nodelist if $self->{SORT};
 
-  foreach my $name (@nodelist) 
-  {
+  foreach my $name (@nodelist) {
     my $node = $self->{NODES}->{$name};
 
     # Note all the clusters
-    if (exists $node->{cluster} && $node->{cluster}) 
-    {
-      push @{$clusters{$node->{cluster}}}, $name;
+    if (exists $node->{cluster} && $node->{cluster}) {
+      # map "name" to value in case cluster attribute is not a simple string
+      $clusters{$node->{cluster}} = $node->{cluster};
+      push @{$cluster_nodes{$node->{cluster}}}, $name;
       next;
     }
 
-    $dot .= "\t " . $node->{_code} . _attributes($node) . ";\n";
+    $dot .= "\t" . $node->{_code} . _attributes($node) . ";\n";
   }
 
   # Add all the edges
-  foreach my $edge (sort { $a->{from} cmp $b->{from} || $a->{to} cmp $b->{to} } @{$self->{EDGES}}) 
-  {
+  foreach my $edge (sort { $a->{from} cmp $b->{from} || $a->{to} cmp $b->{to} } @{$self->{EDGES}}) {
 
     my $from = $self->{NODES}->{$edge->{from}}->{_code};
     my $to = $self->{NODES}->{$edge->{to}}->{_code};
 
     # Deal with ports
-    if (exists $edge->{from_port}) 
-    {
+    if (exists $edge->{from_port}) {
       $from = '"' . $from . '"' . ':port' . $edge->{from_port};
     }
-    
-    if (exists $edge->{to_port}) 
-    {
+    if (exists $edge->{to_port}) {
       $to = '"' . $to . '"' . ':port' . $edge->{to_port};
     }
 
-    if (
-        exists $self->{NODES}->{$from} && exists $self->{NODES}->{$from}->{cluster}
-        && exists $self->{NODES}->{$to} && exists $self->{NODES}->{$to}->{cluster} 
-	&& $self->{NODES}->{$from}->{cluster} eq $self->{NODES}->{$to}->{cluster}
-	) 
-    {
+    if (exists $self->{NODES}->{$from} && exists $self->{NODES}->{$from}->{cluster}
+        && exists $self->{NODES}->{$to} && exists $self->{NODES}->{$to}->{cluster} &&
+	$self->{NODES}->{$from}->{cluster} eq $self->{NODES}->{$to}->{cluster}) {
 
       $clusters_edge{$self->{NODES}->{$from}->{cluster}} .= "\t\t" . $from . $arrow . $to . _attributes($edge) . ";\n";
-    } 
-    else 
-    {
+    } else {
       $dot .= "\t" . $from . $arrow . $to . _attributes($edge) . ";\n";
     }
   }
 
-  foreach my $cluster (sort keys %clusters) {
-  my $label = _attributes({ label => $cluster});
-    $label =~ s/^\s\[//;
-    $label =~ s/\]$//;
+  foreach my $clustername (sort keys %cluster_nodes) {
+    my $cluster = $clusters{$clustername};
+    my $attrs;
+    my $name;
+    if (ref($cluster) eq 'HASH') {
+      if (exists $cluster->{label}) {
+          $name = $cluster->{label};
+      }
+      elsif (exists $cluster->{name}) {
+          # "coerce" name attribute into label attribute
+          $name = $cluster->{name};
+          $cluster->{label} = $name;
+          delete $cluster->{name};
+      }
+      $attrs = _attributes($cluster);
+    } else {
+      $name = $cluster;
+      $attrs = _attributes({ label => $cluster});
+    }
+    # rewrite attributes string slightly
+    $attrs =~ s/^\s\[//o;
+    $attrs =~ s/,/;/go;
+    $attrs =~ s/\]$//o;
 
-    $dot .= "\tsubgraph cluster_" . $self->_quote_name($cluster) . " {\n";
-    $dot .= "\t\t$label;\n";
-    
-    $dot .= join "", map {"\t\t" . $self->{NODES}->{$_}->{_code} . _attributes($self->{NODES}->{$_}) . ";\n";} (@{$clusters{$cluster}});
-    
+    $dot .= "\tsubgraph cluster_" . $self->_quote_name($name) . " {\n";
+    $dot .= "\t\t$attrs;\n";
+    $dot .= join "", map { "\t\t" . $self->{NODES}->{$_}->{_code} . _attributes($self->{NODES}->{$_}) . ";\n"; } (@{$cluster_nodes{$cluster}});
+
 #nadim    
 	# Deal with ranks
 	my %ranks;
@@ -1032,8 +1163,7 @@ sub _as_debug {
 		$dot .= "}\n" ;
 		}
 #nadim out
-    
-    
+
     $dot .= $clusters_edge{$cluster} if exists $clusters_edge{$cluster};
     $dot .= "\t}\n";
   }
@@ -1042,10 +1172,6 @@ sub _as_debug {
   my %ranks;
   foreach my $name (@nodelist) {
     my $node = $self->{NODES}->{$name};
-    
-    next if (exists $node->{cluster} && $node->{cluster}) ;
-    
-    
     next unless exists $node->{rank};
     push @{$ranks{$node->{rank}}}, $name;
   }
@@ -1064,7 +1190,7 @@ sub _as_debug {
 }
 
 
-# Call dot / neato / twopi with the input text and any parameters
+# Call dot / neato / twopi / circo / fdp with the input text and any parameters
 
 sub _as_generic {
   my($self, $type, $dot, $output) = @_;
@@ -1092,13 +1218,13 @@ sub _as_generic {
 }
 
 
-# Quote a node/edge name using dot / neato / twopi's quoting rules
+# Quote a node/edge name using dot / neato / circo / fdp / twopi's quoting rules
 
 sub _quote_name {
   my($self, $name) = @_;
   my $realname = $name;
 
-  return $self->{_QUOTE_NAME_CACHE}->{$name} if exists $self->{_QUOTE_NAME_CACHE}->{$name};
+  return $self->{_QUOTE_NAME_CACHE}->{$name} if $name && exists $self->{_QUOTE_NAME_CACHE}->{$name};
 
   if (defined $name && $name =~ /^[a-zA-Z]\w*$/ && $name ne "graph") {
     # name is fine
@@ -1118,7 +1244,7 @@ sub _quote_name {
 }
 
 
-# Return the attributes of a node or edge as a dot / neato / twopi attribute
+# Return the attributes of a node or edge as a dot / neato / circo / fdp / twopi attribute
 # string
 
 sub _attributes {
@@ -1132,7 +1258,7 @@ sub _attributes {
 
     my $value = $thing->{$key};
     $value =~ s|"|\"|g;
-    $value = '"' . $value . '"';
+    $value = '"' . $value . '"' unless ($key eq 'label' && $value =~ /^<</);
     $value =~ s|\n|\\n|g;
 
     $value = '""' if not defined $value;
@@ -1164,7 +1290,7 @@ Leon Brocard E<lt>F<acme@astray.com>E<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2000-1, Leon Brocard
+Copyright (C) 2000-4, Leon Brocard
 
 This module is free software; you can redistribute it or modify it
 under the same terms as Perl itself.

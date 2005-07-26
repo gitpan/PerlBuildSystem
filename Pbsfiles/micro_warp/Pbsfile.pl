@@ -13,11 +13,19 @@ use Data::TreeDumper ;
 #~ PrintDebug "undef Pbsfile" unless defined $dependency_tree->{__PBS_CONFIG}{PBSFILE} ;
 #~ PrintDebug "undef used_pbsfile!\n" unless defined  $PBS::Depend::used_pbsfiles{$dependency_tree->{__PBS_CONFIG}{PBSFILE}} ;
 
+#~ PrintDebug 
+	#~ DumpTree
+		#~ (
+		  #~ $PBS::Depend::used_pbsfiles{$dependency_tree->{__PBS_CONFIG}{PBSFILE}}
+		#~ , $dependency_tree->{__PBS_CONFIG}{PBSFILE}
+		#~ , NO_NO_ELEMENTS => 1
+		#~ ) ;
+
 PrintDebug 
 	DumpTree
 		(
-		$PBS::Depend::used_pbsfiles{$dependency_tree->{__PBS_CONFIG}{PBSFILE}}
-		, $dependency_tree->{__PBS_CONFIG}{PBSFILE}
+		  $PBS::Depend::used_pbsfiles_located{'PBS::Runs::PBS_1'}
+		, 'PBS::Runs::PBS_1'
 		, NO_NO_ELEMENTS => 1
 		) ;
 

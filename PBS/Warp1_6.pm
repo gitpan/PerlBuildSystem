@@ -1,5 +1,5 @@
 
-package PBS::Warp1_5 ;
+package PBS::Warp1_6 ;
 use PBS::Debug ;
 
 use strict ;
@@ -14,7 +14,7 @@ our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw() ;
-our $VERSION = '0.03' ;
+our $VERSION = '0.01' ;
 
 #-------------------------------------------------------------------------------
 
@@ -69,12 +69,13 @@ my $pbs_config = shift ;
 
 my $warp_signature = GetWarpSignature($targets, $pbs_config) ;
 my $warp_path = $pbs_config->{BUILD_DIRECTORY} ;
-my $warp_file= "$warp_path/Pbsfile_$warp_signature.warp1_5.pl" ;
+my $warp_file= "$warp_path/Pbsfile_$warp_signature.warp1_6.pl" ;
 
-PrintInfo "Warp 1.5 file name: '$warp_file'\n" if defined $pbs_config->{DISPLAY_WARP_FILE_NAME} ;
+PrintInfo "Warp 1.6 file name: '$warp_file'\n" if defined $pbs_config->{DISPLAY_WARP_FILE_NAME} ;
 
 our ($nodes, $node_names, $global_pbs_config, $insertion_file_names) ;
-our ($warp_1_5_version, $number_of_nodes_in_the_dependency_tree, $warp_configuration) ;
+our ($warp_1_6_version, $number_of_nodes_in_the_dependency_tree, $warp_configuration) ;
+our ($pbsfile_dependencies) ;
 
 my $run_in_warp_mode = 1 ;
 my $t0_warp_check = [gettimeofday];
@@ -83,28 +84,27 @@ if(-e $warp_file)
 	{
 	do $warp_file or die ERROR("Couldn't evaluate warp file '$warp_file'\nFile error: $!\nCompilation error: $@\n") ;
 	
-	PrintInfo "Verifying warp 1.5: $number_of_nodes_in_the_dependency_tree nodes ...\n" ;
+	PrintInfo "Verifying warp 1.6: $number_of_nodes_in_the_dependency_tree nodes ...\n" ;
 	
-	unless(defined $warp_1_5_version)
+	if(! defined $warp_1_6_version)
 		{
-		PrintWarning2("Warp 1.5: bad version. Warp file needs to be rebuilt.\n") ;
+		PrintWarning2("Warp 1.6: no version defined. Warp file needs to be rebuilt.\n") ;
 		unlink($warp_file) ;
 		
 		$run_in_warp_mode = 0 ;
 		}
-		
-	unless($warp_1_5_version == $VERSION)
+	elsif($warp_1_6_version != $VERSION)
 		{
-		PrintWarning2("Warp 1.5: bad version. Warp file needs to be rebuilt.\n") ;
+		PrintWarning2("Warp 1.6: bad version. Warp file needs to be rebuilt.\n") ;
 		unlink($warp_file) ;
 		
 		$run_in_warp_mode = 0 ;
 		}
 		
 	# check if all pbs files are still the same
-	if(0 == CheckFilesMD5($warp_configuration, 1))
+	if(0 == CheckFilesMD5($warp_configuration, $pbs_config->{DISPLAY_WARP_TRIGGERED_NODES}))
 		{
-		PrintWarning2("Warp 1.5: Differences in Pbsfiles. Warp file needs to be rebuilt.\n") ;
+		PrintWarning2("Warp 1.6: Differences in Pbsfiles. Warp file needs to be rebuilt.\n") ;
 		unlink($warp_file) ;
 		
 		$run_in_warp_mode = 0 ;
@@ -112,7 +112,7 @@ if(-e $warp_file)
 	}
 else
 	{
-	PrintWarning("Warp 1.5 file '$warp_file' doesn't exist.\n") ;
+	PrintWarning("Warp 1.6 file '$warp_file' doesn't exist.\n") ;
 	$run_in_warp_mode = 0 ;
 	}
 
@@ -176,6 +176,9 @@ if($run_in_warp_mode)
 					
 				$remove_this_node++ ;
 				}
+				
+				
+			$remove_this_node += PbsDependenciesDifferForWarpNode($pbsfile_dependencies, $nodes->{$node}, $pbs_config->{DISPLAY_WARP_TRIGGERED_NODES}) ;
 			}
 			
 		$remove_this_node++ if(exists $nodes->{$node}{__FORCED}) ;
@@ -210,21 +213,23 @@ if($run_in_warp_mode)
 					$number_of_removed_nodes++ ;
 					}
 					
-				if($pbs_config->{DISPLAY_WARP_TRIGGERED_NODES})	
-					{
-					PrintDebug '-' x 30 . "\n" ;
-					}
-					
 				@nodes_to_remove = @dependent_nodes ;
+				}
+				
+			if($pbs_config->{DISPLAY_WARP_TRIGGERED_NODES})	
+				{
+				PrintDebug '-' x 30 . "\n" ;
 				}
 			}
 		else
 			{
 			# rebuild the data PBS needs from the warp file
 			$nodes->{$node}{__NAME} = $node ;
-			$nodes->{$node}{__BUILD_DONE} = "Field set in warp 1.5" ;
+			$nodes->{$node}{__BUILD_DONE} = "Warp 1.6" ;
 			$nodes->{$node}{__DEPENDED}++ ;
 			$nodes->{$node}{__CHECKED}++ ; # pbs will not check any node (and its subtree) which is marked as checked
+			
+			$nodes->{$node}{__HAS_DIGEST} = $nodes->{$node}{__LOAD_PACKAGE} ne '__SOURCE' ;
 			
 			$nodes->{$node}{__PBS_CONFIG} = $global_pbs_config unless exists $nodes->{$node}{__PBS_CONFIG} ;
 			
@@ -251,7 +256,7 @@ if($run_in_warp_mode)
 	
 	if($pbs_config->{DISPLAY_WARP_TIME})
 		{
-		PrintInfo(sprintf("Warp 1.5 verification time: %0.2f s.\n", tv_interval($t0_warp_check, [gettimeofday]))) ;
+		PrintInfo(sprintf("Warp 1.6 verification time: %0.2f s.\n", tv_interval($t0_warp_check, [gettimeofday]))) ;
 		}
 		
 	if($number_of_removed_nodes)
@@ -285,7 +290,7 @@ if($run_in_warp_mode)
 			# PBS will link to the  warp nodes instead for regenerating them
 			my $node_plural = '' ; $node_plural = 's' if $number_of_removed_nodes > 1 ;
 			
-			PrintInfo "Running PBS in warp 1.5 mode. $number_of_removed_nodes node$node_plural to rebuild.\n" ;
+			PrintInfo "Running PBS in warp 1.6 mode. $number_of_removed_nodes node$node_plural to rebuild.\n" ;
 			($build_result, $build_message, $new_dependency_tree)
 				= PBS::PBS::Pbs
 					(
@@ -309,6 +314,7 @@ if($run_in_warp_mode)
 					(
 					  $targets, $new_dependency_tree, $nodes
 					, $pbs_config, $warp_configuration
+					, $pbsfile_dependencies
 					) ;
 				}
 				
@@ -321,6 +327,7 @@ if($run_in_warp_mode)
 				(
 				  $targets, $new_dependency_tree, $nodes
 				, $pbs_config, $warp_configuration
+				, $pbsfile_dependencies
 				) ;
 			}
 			
@@ -328,12 +335,15 @@ if($run_in_warp_mode)
 		}
 	else
 		{
-		PrintInfo("Warp 1.5: Up to date.\n") ;
-		return(BUILD_SUCCESS, "Warp 1.5: Up to date", {READ_ME => "Up to date warp doesn't have any tree"}, $nodes) ;
+		PrintInfo("Warp 1.6: Up to date.\n") ;
+		return(BUILD_SUCCESS, "Warp 1.6: Up to date", {READ_ME => "Up to date warp doesn't have any tree"}, $nodes) ;
 		}
 	}
 else
 	{
+	# run in normal PBS mode
+	
+	
 	#eurk hack we could dispense with!
 	# this is not needed but the subpses are travesed an extra time
 	
@@ -411,18 +421,31 @@ sub GenerateWarpFile
 # indexing the node name  saves another 10% in size
 # indexing the location name saves another 10% in size
 
-my ($targets, $dependency_tree, $inserted_nodes, $pbs_config, $warp_configuration) = @_ ;
+my 
+(
+  $targets
+, $dependency_tree
+, $inserted_nodes
+, $pbs_config
+, $warp_configuration
+, $pbsfile_dependencies
+) = @_ ;
 
 $warp_configuration = GetWarpConfiguration($pbs_config, $warp_configuration) ; #$warp_configuration can be undef or from a warp file
 
-PrintInfo("Generating warp 1.5 file.               \n") ;
+# merge cache with newly created digest
+#TODO: aiiiiii! do the indexing still work!!!!!!
+$pbsfile_dependencies ||= {} ; #undef if not from a warp file
+$pbsfile_dependencies = { %$pbsfile_dependencies, %{PBS::Digest::GetPackageDigest('__WARP1_6')} } ;
+
+PrintInfo("Generating warp 1.6 file.               \n") ;
 my $t0_warp_generate =  [gettimeofday] ;
 
 my $warp_signature = GetWarpSignature($targets, $pbs_config) ;
 my $warp_path = $pbs_config->{BUILD_DIRECTORY} ;
 mkpath($warp_path) unless(-e $warp_path) ;
 
-my $warp_file= "$warp_path/Pbsfile_$warp_signature.warp1_5.pl" ;
+my $warp_file= "$warp_path/Pbsfile_$warp_signature.warp1_6.pl" ;
 
 my $global_pbs_config = # cache to reduce warp file size
 	{
@@ -432,7 +455,11 @@ my $global_pbs_config = # cache to reduce warp file size
 	
 my $number_of_nodes_in_the_dependency_tree = keys %$inserted_nodes ;
 
-my ($nodes, $node_names, $insertion_file_names) = WarpifyTree1_5($inserted_nodes, $global_pbs_config) ;
+my ($nodes, $node_names, $insertion_file_names) = WarpifyTree1_6($inserted_nodes, $global_pbs_config) ;
+
+# nodes that are source code are dependend on the pbsfile content and shouldn't
+# trigger when the former is modified
+$pbsfile_dependencies->{__SOURCE} = {} ;
 
 open(WARP, ">", $warp_file) or die qq[Can't open $warp_file: $!] ;
 print WARP PBS::Log::GetHeader('Warp', $pbs_config) ;
@@ -453,8 +480,12 @@ print WARP Data::Dumper->Dump([$insertion_file_names], ['insertion_file_names'])
 
 print WARP "\n\n" ;
 print WARP Data::Dumper->Dump([$warp_configuration], ['warp_configuration']) ;
+
+# micro warp
+print WARP Data::Dumper->Dump([$pbsfile_dependencies], ['$pbsfile_dependencies']) ;
+
 print WARP "\n\n" ;
-print WARP Data::Dumper->Dump([$VERSION], ['warp_1_5_version']) ;
+print WARP Data::Dumper->Dump([$VERSION], ['warp_1_6_version']) ;
 print WARP Data::Dumper->Dump([$number_of_nodes_in_the_dependency_tree], ['number_of_nodes_in_the_dependency_tree']) ;
 
 print WARP "\n\n" ;
@@ -462,13 +493,13 @@ close(WARP) ;
 
 if($pbs_config->{DISPLAY_WARP_TIME})
 	{
-	PrintInfo(sprintf("Warp 1.5 generated in: %0.2f s.\n", tv_interval($t0_warp_generate, [gettimeofday]))) ;
+	PrintInfo(sprintf("Warp 1.6 generated in: %0.2f s.\n", tv_interval($t0_warp_generate, [gettimeofday]))) ;
 	}
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-sub WarpifyTree1_5
+sub WarpifyTree1_6
 {
 my $inserted_nodes = shift ;
 my $global_pbs_config = shift ;
@@ -605,9 +636,65 @@ for my $node (keys %$inserted_nodes)
 		{
 		$nodes{$node}{__TRIGGER_INSERTED} = $inserted_nodes->{$node}{__TRIGGER_INSERTED} ;
 		}
+		
+	if(exists $inserted_nodes->{$node}{__LOAD_PACKAGE})
+		{
+		if($inserted_nodes->{$node}{__HAS_DIGEST})
+			{
+			$nodes{$node}{__LOAD_PACKAGE} = $inserted_nodes->{$node}{__LOAD_PACKAGE} ;
+			}
+		else
+			{
+			$nodes{$node}{__LOAD_PACKAGE} = '__SOURCE' ;
+			}
+		}
+	else
+		{
+		die ERROR "'$node' doesn't have a load package!\n" ;
+		}
 	}
 	
 return(\%nodes, \@node_names, \@insertion_file_names) ;
+}
+
+# cache so we compute md5 for pbs dependencies only once per package
+my %pbsfile_dependencies_trigger ;
+
+sub PbsDependenciesDifferForWarpNode
+{
+my ($pbsfile_dependencies, $node, $display_difference) = @_ ;
+
+# source files are not triggered by Pbsfile changes
+# we don't cache the result as we still want the other nodes to trigger
+return(0) if $node->{__LOAD_PACKAGE} eq '__SOURCE' ;
+
+my $pbs_dependencies_differ = 0 ;
+
+if(exists $pbsfile_dependencies_trigger{$node->{__LOAD_PACKAGE}})
+	{
+	$pbs_dependencies_differ = $pbsfile_dependencies_trigger{$node->{__LOAD_PACKAGE}} ;
+	}
+else
+	{
+	if(0 == CheckFilesMD5($pbsfile_dependencies->{$node->{__LOAD_PACKAGE}}, $display_difference))
+		{
+		#~ PrintDebug DumpTree($pbsfile_dependencies->{$node->{__LOAD_PACKAGE}}, $node->{__BUILD_NAME}) ;
+		
+		if($display_difference)
+			{
+			PrintWarning("Warp 1.6: Differences in Pbs dependencies for '$node->{__BUILD_NAME}'. Warp file needs to be updated.\n") ;
+			}
+		
+		$pbsfile_dependencies_trigger{$node->{__LOAD_PACKAGE}}++ ;
+		$pbs_dependencies_differ++ ;
+		}
+	else
+		{
+		$pbsfile_dependencies_trigger{$node->{__LOAD_PACKAGE}} = 0 ;
+		}
+	}
+		
+return($pbs_dependencies_differ) ;
 }
 
 #--------------------------------------------------------------------------------------------------
@@ -640,46 +727,7 @@ unless(defined $warp_configuration)
 		{
 		$warp_configuration = {} ;
 		}
-		
-	my $package_digest = PBS::Digest::GetPackageDigest('__PBS_WARP_DATA') ;
-	for my $entry (keys %$package_digest)
-		{
-		$warp_configuration->{$entry} = $package_digest->{$entry} ;
-		}
 	}
-
-
-# what a usefull comment! shall we remove or did I already do it?
-#is the code bellow supposed to replace the code in Digest.pm?
-# hate!
-
-#NK, remove special handling in  digest.pm(seePBS_WARP_DATA)
-#~ my $package_digests = PBS::Digest::GetAllPackageDigests() ;
-#~ my $computed_warp_digest = {} ;
-
-#~ for my $package (keys %$package_digests)
-	#~ {
-	#~ PrintDebug "Handling package: '$package'\n" ;
-	
-	#~ my $package_digest = $package_digests->{$package} ;
-	
-	#~ for my $digest_key (keys %$package_digest)
-		#~ {
-		
-		#~ if($digest_key =~ "__PBS_LIB_PATH" || $digest_key =~ "^__PBSFILE")
-			#~ {
-			#~ PrintDebug "\t**** Found: '$digest_key'\n" ;
-			#~ $computed_warp_digest->{$digest_key} = $package_digest->{$digest_key} ;
-			
-			#~ # we must find the fulll path for the lib and the pbs file
-			#~ # the md5 is already computed
-			#~ }
-		#~ else
-			#~ {
-			#~ PrintDebug "\t key: '$digest_key'\n" ;
-			#~ }
-		#~ }
-	#~ }
 
 return($warp_configuration) ;
 }
@@ -691,7 +739,7 @@ return($warp_configuration) ;
 __END__
 =head1 NAME
 
-PBS::Warp1_5  -
+PBS::Warp1_6  -
 
 =head1 DESCRIPTION
 

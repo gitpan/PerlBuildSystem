@@ -182,6 +182,7 @@ elsif($graphviz_not_installed)
 	}
 else
 	{
+	#$t->generate_test_snapshot_and_exit() ;
 	$t->build_test();
 	ok(-s 'graph.png', 'Graph file has nonzero size');
 	}

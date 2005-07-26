@@ -46,10 +46,18 @@ return($global_user_check_subs{$package}) ;
 
 #-----------------------------------------------------------------------------
 
+my @rotor = qw( | / - \\ ) ;
+my $rotor = 0 ;
+
 sub CheckDependencyTree
 {
 # also checks the tree for cyclic dependencies
 # generates a build sequence
+
+$rotor++ ;
+$rotor %= @rotor ;
+my $rotor_char = $rotor[$rotor] ;
+print "$rotor_char\r" ;
 
 my $tree                     = shift ;
 my $inserted_nodes           = shift ; # this is to be considered read only

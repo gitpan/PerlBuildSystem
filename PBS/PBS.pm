@@ -379,7 +379,7 @@ if($pbs_config->{DISPLAY_DEPENDENCY_TIME})
 	
 #~ die $build_message unless $build_result == BUILD_SUCCESS ;
 #~ return($dependency_tree, $inserted_nodes, $build_result) ;
-return($build_result, $build_message, $dependency_tree, $inserted_nodes) ;
+return($build_result, $build_message, $dependency_tree, $inserted_nodes, $load_package) ;
 }
 
 #-------------------------------------------------------------------------------

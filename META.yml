@@ -1,6 +1,6 @@
 ---
 name: PerlBuildSystem
-version: 0.34
+version: 0.35
 author:
   - Khemir Nadim ibn Hamouda. <nadim@khemir.net>
 abstract: ~
@@ -19,6 +19,7 @@ requires:
   File::Slurp: 0
   File::Spec: 0
   Getopt::Long: 2.32
+  Math::Bezier: 0
   Pod::Simple::Search: 0
   Term::ProgressBar: 0
   Test::Class: 0
@@ -82,7 +83,7 @@ provides:
     version: 0.02
   PBS::FrontEnd:
     file: PBS/FrontEnd.pm
-    version: 0.34
+    version: 0.35
   PBS::Graph:
     file: PBS/Graph.pm
     version: 0.04
@@ -94,7 +95,7 @@ provides:
     version: 0.02
   PBS::GraphViz:
     file: PBS/GraphViz.pm
-    version: 0.1
+    version: 2.02
   PBS::Information:
     file: PBS/Information.pm
     version: 0.04
@@ -155,6 +156,9 @@ provides:
   PBS::Warp1_5:
     file: PBS/Warp1_5.pm
     version: 0.03
+  PBS::Warp1_6:
+    file: PBS/Warp1_6.pm
+    version: 0.01
   PBS::Wizard:
     file: PBS/Wizard.pm
     version: 0.02
