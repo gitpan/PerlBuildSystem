@@ -9,10 +9,9 @@ use warnings ;
 use Data::Dumper ;
 use Data::TreeDumper ;
 use Carp ;
-use Tie::IxHash ;
 use Tie::Hash::Indexed ;
 use Time::HiRes qw(gettimeofday tv_interval) ;
-use File::Spec ;
+use File::Spec::Functions qw(:ALL) ;
 
 require Exporter ;
 use AutoLoader qw(AUTOLOAD) ;
@@ -21,7 +20,7 @@ our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw(PbsUse) ;
-our $VERSION = '0.02' ;
+our $VERSION = '0.03' ;
 
 use PBS::PBSConfig ;
 use PBS::Output ;
@@ -36,6 +35,21 @@ use PBS::Constants ;
 use PBS::Digest;
 
 use Digest::MD5 qw(md5_hex) ;
+
+#-------------------------------------------------------------------------------
+
+# a global place to keep timing and other pbs run information
+# the idea is to make them available to a post pbs script for processing
+# this should of course be passed around not be global, maybe we 
+# should package this and the dependency tree, nodes, etc in some structure
+
+our $pbs_run_information = 
+	{
+	# TIMING => {}
+	# CAHE => {MD5_HITS => xxx, C_DEPENDER_HITS => YYY ...
+	# BUILDER
+	} ;
+
 
 #-------------------------------------------------------------------------------
 
@@ -73,10 +87,15 @@ unless('' eq ref $package && '' ne $package)
 	die ;
 	}
 
+if(defined $pbs_config->{SAVE_CONFIG})
+	{
+	SaveConfig($targets, $Pbsfile, $pbs_config, $parent_config) ;
+	}
+
 undef $pbs_config->{TARGETS} ;
 for my $target (@$targets)
 	{
-	if(File::Spec->file_name_is_absolute($target) || $target =~ /^\.\//)
+	if(file_name_is_absolute($target) || $target =~ /^\.\//)
 		{
 		push @{$pbs_config->{TARGETS}}, $target ;
 		}
@@ -278,7 +297,7 @@ if(-e $Pbsfile || defined $pbs_config->{PBSFILE_CONTENT})
 				{
 				my @targets = map 
 							{
-							if(File::Spec->file_name_is_absolute($_) || /^\.\//)
+							if(file_name_is_absolute($_) || /^\.\//)
 								{
 								"$_" ;
 								}
@@ -341,7 +360,8 @@ if(-e $Pbsfile || defined $pbs_config->{PBSFILE_CONTENT})
 			
 		if($pbs_config->{DISPLAY_COMPACT_DEPEND_INFORMATION})
 			{
-			PrintInfo("PBS depend run $pbs_runs at depth: $Pbs_call_depth.       \r", 0) ;
+			my $number_of_nodes = scalar(keys %$inserted_nodes) ;
+			PrintInfo("PBS depend run $pbs_runs at depth: $Pbs_call_depth [$number_of_nodes].        \r", 0) ;
 			}
 		
 		($build_result, $build_message)
@@ -377,9 +397,60 @@ if($pbs_config->{DISPLAY_DEPENDENCY_TIME})
 	PrintInfo(sprintf("Time in Pbsfile: %0.2f s.\n", tv_interval ($t0, [gettimeofday]))) ;
 	}
 	
-#~ die $build_message unless $build_result == BUILD_SUCCESS ;
-#~ return($dependency_tree, $inserted_nodes, $build_result) ;
 return($build_result, $build_message, $dependency_tree, $inserted_nodes, $load_package) ;
+}
+
+#-------------------------------------------------------------------------------
+
+sub SaveConfig
+{
+my ($targets, $pbsfile, $pbs_config, $parent_config) = @_ ;
+
+my $first_target = $targets->[0] ;
+my ($first_target_name, $first_target_path, $sufix) = File::Basename::fileparse($targets->[0], ('\..*')) ;
+$first_target_name .= $sufix ;
+
+(my $pbsfile_canonized = $pbsfile) =~ s/[^a-zA-Z0-9]/_/g ;
+my $path             = $pbs_config->{BUILD_DIRECTORY} . '/' . $first_target_path ;
+
+my $config_file_name = $path . 'config_' . $pbsfile_canonized . '___' . $first_target_name . '_' . $pbs_config->{SAVE_CONFIG} . '.pl' ;
+$config_file_name =~ s/[^a-zA-Z0-9\/.]/_/g ;
+
+use File::Path ;
+mkpath($path) unless(-e $path) ;
+
+PrintDebug "Saving Config in $config_file_name\n" ;
+
+open(CONFIG, ">", $config_file_name) or die qq[Can't open '$config_file_name': $!] ;
+
+local $Data::Dumper::Purity = 1 ;
+local $Data::Dumper::Indent = 1 ;
+local $Data::Dumper::Sortkeys = undef ;
+
+local $SIG{'__WARN__'} = sub 
+	{
+	if($_[0] =~ 'Encountered CODE ref')
+		{
+		# ignore this warning
+		}
+	else
+		{
+		print STDERR $_[0] ;
+		}
+	} ;
+
+print CONFIG PBS::Log::GetHeader('Config', $pbs_config) ;
+print CONFIG <<EOI ;
+# pbsfile: $pbsfile
+# target: $first_target
+
+EOI
+print CONFIG Data::Dumper->Dump([$parent_config], ['config']) ;
+print CONFIG Data::Dumper->Dump([$pbs_config], ['pbs_config']) ;
+
+print CONFIG 'return($pbs_config, $config);';
+
+close(CONFIG) ;
 }
 
 #-------------------------------------------------------------------------------
@@ -397,6 +468,11 @@ for my $source_name (@{[@_]})
 		die  ERROR("PbsUse only accepts strings as input. Called @ $file_name:$line.\n")  ;
 		}
 		
+	unless(defined $source_name)
+		{
+		die  ERROR("PbsUse must be given a name. Called @ $file_name:$line.\n")  ;
+		}
+		
 	my $t0 = [gettimeofday];
 	
 	my $global_package_dependency = shift || 1 ; # if set, the use module becomes adependency for all the package nodes
@@ -412,7 +488,7 @@ for my $source_name (@{[@_]})
 		die ;
 		}
 	
-	if(File::Spec->file_name_is_absolute($source_name))
+	if(file_name_is_absolute($source_name))
 		{
 		$located_source_name = $source_name ;
 		}
@@ -440,7 +516,9 @@ for my $source_name (@{[@_]})
 	$pbs_use_level++ ; # indent the PbsUse output to make the hierachy more visible
 	my $indentation = '   ' x $pbs_use_level ;
 	
-	PrintInfo("${indentation}PbsUse: '$located_source_name'\n") if(defined $pbs_config->{DISPLAY_PBSUSE}) ;
+	PrintInfo("${indentation}PbsUse: '$located_source_name' called at '$file_name:$line'\n") if(defined $pbs_config->{DISPLAY_PBSUSE_VERBOSE}) ;
+	PrintInfo("${indentation}PbsUse: '$source_name'\n") if(defined $pbs_config->{DISPLAY_PBSUSE}) ;
+	
 	
 	if(exists $files_loaded_via_PbsUse{$package}{$located_source_name})
 		{
@@ -454,7 +532,7 @@ for my $source_name (@{[@_]})
 		
 		if($global_package_dependency)
 			{
-			$add_as_package_dependency = "PBS::Digest::AddPbsLibDependencies('$located_source_name:$source_name') ;\n" ;
+			$add_as_package_dependency = "PBS::Digest::AddPbsLibDependencies('$located_source_name', '$source_name') ;\n" ;
 			}
 			
 		LoadFileInPackage
@@ -526,7 +604,7 @@ my $file_body = '' ; #?? can't let this variable undef or perl bugs out!
 
 if($type eq 'Pbsfile')
 	{
-	PrintInfo("==>Loading file '$file' into package '$package'.\n") if (defined $pbs_config->{DISPLAY_PACKAGE_LOADING}) ;
+	PrintInfo("==>Loading file '$file' into package '$package'.\n") if (defined $pbs_config->{DISPLAY_PBSFILE_LOADING}) ;
 	
 	if(defined $pbs_config->{PBSFILE_CONTENT} && -e $file)
 		{

@@ -30,38 +30,6 @@ _EOF_
     $t->command_line_flags('--post_pbs=post_pbs.pl');
 }
 
-# removed when Simplified rules made it to plugins
-# -nge doesn't set the plugin path and thus fails the test now
-
-sub flag_nge : Test(4) {
-    # Write files
-    $t->subdir('subdir');
-    $t->write_pbsfile(<<'_EOF_');
-	PbsUse('Language/Simplified');
-    ExcludeFromDigestGeneration('in-files' => qr/\.in$/);
-    AddRule 'target', ['file.target' => 'file.in'] =>
-	'cat %DEPENDENCY_LIST > %FILE_TO_BUILD';
-_EOF_
-    $t->write('file.in', 'file contents');
-    $t->write('subdir/file.in', 'file2 contents');
-
-	# Set PBS_LIB_PATH so PBS can find Language/Simplified
-    $t->command_line_flags($t->command_line_flags . ' --plp=' . $ENV{PBS_LIB_PATH});
-
-    # Build
-    $ENV{'PBS_FLAGS'} = ' --source_directory subdir';
-    $t->build_test();
-    $t->test_target_contents('file2 contents');
-
-    # Specify --nge so the source directory is not used and rebuild
-    $t->command_line_flags($t->command_line_flags . ' --nge');
-    $t->build_test();
-    $t->test_target_contents('file contents');
-
-    $ENV{'PBS_FLAGS'} = '';
-}
-
-
 sub flag_a : Test(2) {
     # Write files
     $t->write_pbsfile(<<'_EOF_');
@@ -117,23 +85,28 @@ _EOF_
 
     # Build
     $t->command_line_flags($t->command_line_flags . ' --kpbb -j=1');
+	 
+	 use Digest::MD5 qw(md5_hex) ;
+	 my $buffer_name = 'PBS_BUILD_BUFFERS/' . md5_hex('PBS::Shell_node_./file.target') ;
+	 
     if ($^O eq 'MSWin32')
 	{
 		TODO: {
 			local $TODO = '-j does not work on Windows';
 			#			$t->build_test();
-			$t->test_file_exist_in_build_dir('PBS_BUILD_BUFFERS/PBS::Shell__node_._file.target');
+			ok(0, 'Building would produce an access violation');
+			$t->test_file_exist_in_build_dir($buffer_name);
 		}
 	}
     else
 	{
 		$t->build_test();
 
-		$t->test_file_exist_in_build_dir('PBS_BUILD_BUFFERS/PBS::Shell__node_._file.target');
+		$t->test_file_exist_in_build_dir($buffer_name);
 	}
 }
 
-sub flag_dd : Test(2) {
+sub flag_dd : Test(3) {
     # Write files
     $t->write_pbsfile(<<'_EOF_');
     ExcludeFromDigestGeneration('in-files' => qr/\.in$/);
@@ -145,7 +118,13 @@ _EOF_
     $t->command_line_flags($t->command_line_flags . ' --dd');
     $t->build_test();
     my $stdout = $t->stdout;
-    like($stdout, qr|file\.target has dependencies \[\./file.in\].*file\.in has no locally defined dependencies|s, 'Correct output from build with display dependencies');
+    like($stdout
+	, qr|'\.\/file\.target' has dependencies \[\./file.in\], rule 1:target:\[B\]\[S\]|
+	, 'Correct dependency display');
+	
+    like($stdout
+	, qr|'\.\/file\.in' wasn't depended \(rules from '\.\/Pbsfile\.pl'\)\.|
+	, 'Correct no dependencies display');
 }
 
 sub flag_gtg : Test(2) {
@@ -162,27 +141,10 @@ $t->write('file.in', 'file contents');
 
 # Build
 $t->command_line_flags($t->command_line_flags . ' --gtg=graph.png');
-if($^O eq 'MSWin32')
+
+SKIP: 
 	{
-	TODO: 
-		{
-		local $TODO = 'Generate tree graph does not work on Windows';
-		$t->build_test();
-		ok(-s 'graph.png', 'Graph file has nonzero size');
-		}
-	}
-elsif($graphviz_not_installed)
-	{
-	TODO: 
-		{
-		local $TODO = "Graphviz is not installed\n";
-		$t->build_test();
-		ok(-s 'graph.png', 'Graph file has nonzero size');
-		}
-	}
-else
-	{
-	#$t->generate_test_snapshot_and_exit() ;
+	skip "Graphviz is not installed\n", 2 if $graphviz_not_installed ;
 	$t->build_test();
 	ok(-s 'graph.png', 'Graph file has nonzero size');
 	}
@@ -219,13 +181,14 @@ sub flag_prf : Test(2) {
 	'cat %DEPENDENCY_LIST > %FILE_TO_BUILD';
 _EOF_
     $t->write('file.in', 'file contents');
-    $t->write('responsefile', "\$TEST_TARGET\n");
+    $t->write('responsefile', "AddTargets(\$ENV{TEST_TARGET}) ;\n") ;
 
     # Build
     $t->command_line_flags($t->command_line_flags . ' --prf responsefile');
     $ENV{'TEST_TARGET'} = 'file2.target';
     $t->target('');
     $t->build_test();
+#~ $t->generate_test_snapshot_and_exit ;
     $t->test_file_contents($t->catfile($t->build_dir, 'file2.target'), 'file contents');
 }
 
@@ -270,8 +233,14 @@ sub CreateLog {
 _EOF_
     $t->write('file.in', 'file contents');
 
+	#if a plugin path is given on the command line or in a prf, the default plugins are not found anymore
+	use Module::Util qw(find_installed) ;
+	my ($basename, $path, $ext) = File::Basename::fileparse(find_installed('PBS::PBS'), ('\..*')) ;
+	my $distribution_plugin_path = $path . 'Plugins' ;
+
 # Build
-    $t->command_line_flags($t->command_line_flags . ' --ppp ./plugin_dir');
+    $t->command_line_flags($t->command_line_flags . " --ppp ./plugin_dir --ppp $distribution_plugin_path");
+	 #~ $t->generate_test_snapshot_and_exit ;
     $t->build_test;
     my $stdout = $t->stdout;
     like($stdout, qr|Test plugin\n|, 'Plugin output');

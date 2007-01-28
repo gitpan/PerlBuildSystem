@@ -73,8 +73,7 @@ _EOF_
     $t->write('file.in', 'file contents');
 
 # Build
-    $t->build;
-    isnt($?, 0, 'Exit status indicating error');
+	$t->build_test_fail;
     my $stderr = $t->stderr;
     like($stderr, qr/BUILD_FAILED : Builder sub error/, 'Error message from builder sub');
 }
@@ -111,8 +110,7 @@ _EOF_
     $t->write('file.in', 'file contents');
 
 # Build
-    $t->build;
-    isnt($?, 0, 'Exit status indicating error');
+	$t->build_test_fail;
     my $stderr = $t->stderr;
     like($stderr, qr/Shell command failed!/, 'Error message from PBS::Shell::RunShellCommands');
 }

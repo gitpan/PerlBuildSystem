@@ -1,17 +1,22 @@
 Build.PL
+Makefile.PL
+
 Changes
 INSTALL
 MANIFEST
 META.yml
 README
 Todo.txt
-
-pbs.pl
-pbs_test.pl
 licence.txt
-build_server.pl
+
+script/pbs.pl
+script/build_server.pl
+script/watch_server.pl
+script/watch_client.pl
+script/create_pbs_binary.pl
 
 Plugins/PostPbs.pm
+Plugins/FileWatchClient.pm
 Plugins/CreateLog.pm
 Plugins/CreateDump.pm
 Plugins/PackageVisualisation.pm
@@ -19,6 +24,7 @@ Plugins/GraphGeneration.pm
 Plugins/TreeVisualisation.pm
 Plugins/Visualisation.pm
 Plugins/EvaluateShellCommand.pm
+Plugins/ExpandObjects.pm
 Plugins/CheckNodeName.pm
 Plugins/SimplifyRule.pm
 
@@ -45,6 +51,7 @@ PBS/Graph/Html.pm
 PBS/Graph/Snapshots.pm
 PBS/GraphViz.pm
 PBS/Output.pm
+PBS/Prf.pm
 PBS/PBS.pm
 PBS/PBSConfig.pm
 PBS/PBSConfigSwitches.pm
@@ -64,14 +71,24 @@ PBS/Triggers.pm
 PBS/Wizard.pm
 PBS/Information.pm
 PBS/Log.pm
-PBS/Warp1_5.pm
-PBS/Warp1_6.pm
+PBS/Warp.pm
+PBS/Warp/Warp0.pm
+PBS/Warp/Warp1_5.pm
+PBS/Warp/Warp1_7.pm
+PBS/Warp/Warp1_8.pm
+PBS/SubpbsResult.pm
+PBS/Watch/Client.pm
+PBS/Watch/Win32Watcher.pm
+PBS/Watch/InotifyWatcher.pm
+PBS/Version.pm
 
+doc/crazy_pbs
 doc/pbs_users_guide.pod
 doc/reference_manual.pod
 doc/PBS_short_introduction.pod
 doc/documenting_pbsfile.pod
 doc/how_fast_is_it
+doc/links.txt
 
 doc/Cookbook/cookbook.pod
 doc/Cookbook/C/Pbsfile.pl
@@ -106,14 +123,32 @@ doc/pnw2004/cyclic2.png
 doc/pnw2004/trigger.png
 doc/pnw2004/examples/package_fiddle.pl
 
-doc/pbsum.tex
 doc/user_manual.pod
 
-PBSLib/Builders/MultiNodeBuilder.pm
+
+PBSLib/Builders/Objects.pm
+
+PBSLib/Configs/Compilers/cl.pm
+PBSLib/Configs/Compilers/compiler.pm
+PBSLib/Configs/Compilers/gcc.pm
+PBSLib/Configs/Compilers/old_gcc.pm
+
+PBSLib/Rules/C_DependAndBuild.pm
+PBSLib/Rules/cl_pch.pm
+PBSLib/Rules/Compilers/cl.pm
+PBSLib/Rules/Compilers/compiler.pm
+PBSLib/Rules/Compilers/gcc.pm
+PBSLib/Rules/NodeSubs/Config.pm
+PBSLib/Rules/VisualStudioDSP.pm
+PBSLib/Rules/VisualStudioProject.pm
+
+PBSLib/Utils/VisualStudioProjectFile.pm
+
+PBSLib/Builders/SingleRunBuilder.pm
 
 PBSLib/Configs/ShellCommands.pm
-PBSLib/Configs/gcc.pm
 PBSLib/Configs/ConfigureProject.pm
+PBSLib/Configs/ConfigureProjectVariablesAndRules.pm
 
 PBSLib/Rules/C_depender.pm
 PBSLib/Rules/C.pm
@@ -140,26 +175,29 @@ PBSLib/Wizards/Breakpoint.pl
 PBSLib/Wizards/Distributor.pl
 PBSLib/Wizards/PostPbs.pl
 PBSLib/Wizards/Plugin.pl
+PBSLib/Wizards/Creator.pl
+PBSLib/Wizards/Prf.pl
 
-test/hello/Pbs.prf
-test/hello/Pbsfile.pl
-test/hello/world.c
-test/hello/common.h
-test/hello/main.c
+Pbsfiles/hello/pbs.prf
+Pbsfiles/hello/Pbsfile.pl
+Pbsfiles/hello/world.c
+Pbsfiles/hello/common.h
+Pbsfiles/hello/main.c
 
-test/hello2/main/main.c
-test/hello2/main/main.pl
-test/hello2/Pbs.prf
-test/hello2/Pbsfile.pl
-test/hello2/common.h
-test/hello2/world/world.c
-test/hello2/world/world.h
-test/hello2/world/world2.h
-test/hello2/world/world.pl
-test/hello2/world/header/reverse.h
+Pbsfiles/hello2/main/main.c
+Pbsfiles/hello2/main/main.pl
+Pbsfiles/hello2/pbs.prf
+Pbsfiles/hello2/Pbsfile.pl
+Pbsfiles/hello2/common.h
+Pbsfiles/hello2/world/world.c
+Pbsfiles/hello2/world/world.h
+Pbsfiles/hello2/world/world2.h
+Pbsfiles/hello2/world/world.pl
+Pbsfiles/hello2/world/header/reverse.h
 
 Pbsfiles/frontend/frontend.pl
 Pbsfiles/color/pbsfile.pl
+Pbsfiles/error_messages/Pbsfile.pl
 
 Pbsfiles/test1/Pbsfile.pl
 Pbsfiles/test1/P2.pl
@@ -194,6 +232,8 @@ Pbsfiles/remote_fork/Pbsfile.pl
 Pbsfiles/subpbs_space/Pbsfile.pl
 Pbsfiles/subpbs_space/subpbs.pl
 
+Pbsfiles/plugin_shell_filter/Pbsfile.pl
+
 Pbsfiles/subpbs_locate/Pbsfile.pl
 Pbsfiles/subpbs_locate/sd1/d1/d11/Pbsfile.pl
 Pbsfiles/subpbs_locate/sd1/d1/d12/Pbsfile.pl
@@ -208,11 +248,19 @@ Pbsfiles/subpbs_locate/sd2/Pbsfile.pl
 Pbsfiles/subpbs_locate/d1/d11/Pbsfile.pl
 Pbsfiles/subpbs_locate/d1/Pbsfile.pl
 
+Pbsfiles/link/Pbsfile.pl
+Pbsfiles/link/subpbs.pl
+Pbsfiles/link/subpbs2.pl
+
 Pbsfiles/s/s_a1.pl
 Pbsfiles/s/s_b1.pl
 Pbsfiles/s/s_b2.pl
 Pbsfiles/s/s_b3.pl
 Pbsfiles/s/s_c1.pl
+
+Pbsfiles/prf_as_pbs_module/Pbsfile.pl
+Pbsfiles/prf_as_pbs_module/pbs.prf
+Pbsfiles/prf_as_pbs_module/nadim.prf
 
 Pbsfiles/miner/miner.prf
 Pbsfiles/miner/miner.pl
@@ -226,12 +274,13 @@ Pbsfiles/pure_perl_rule/nadim.prf
 Pbsfiles/multi/Pbsfile.pl
 Pbsfiles/multi/sub.pl
 
-Pbsfiles/multi_node_builder/Pbsfile.pl
+Pbsfiles/single_run_builder/Pbsfile.pl
 
 Pbsfiles/debug/1.pl
 Pbsfiles/debug/2.pl
 Pbsfiles/debug/3.pl
 Pbsfiles/debug/bp.pl
+Pbsfiles/debug/stop_on_node_insertion.pl
 
 Pbsfiles/config/bp.pl
 Pbsfiles/config/parent.pl
@@ -240,6 +289,7 @@ Pbsfiles/config/grand_son.pl
 Pbsfiles/config/grand_daughter.pl
 Pbsfiles/config/force.pl
 Pbsfiles/config/lock.pl
+Pbsfiles/config/as_list.pl
 
 Pbsfiles/project_config/1.pl
 Pbsfiles/project_config/3.pl
@@ -252,7 +302,7 @@ Pbsfiles/legend/not_to_rebuild
 Pbsfiles/legend/existing_dependency
 Pbsfiles/legend/digest
 Pbsfiles/legend/cyclic_legend.pl
-Pbsfiles/legend/Pbs.prf
+Pbsfiles/legend/pbs.prf
 Pbsfiles/legend/config_legend.pl
 Pbsfiles/legend/subpbs2.pl
 Pbsfiles/legend/subpbs3.pl
@@ -268,20 +318,24 @@ Pbsfiles/hosted/world.c
 Pbsfiles/node_subs/common.h
 Pbsfiles/node_subs/main.c
 Pbsfiles/node_subs/Pbsfile.pl
-Pbsfiles/node_subs/Pbs.prf
+Pbsfiles/node_subs/pbs.prf
 Pbsfiles/node_subs/world.c
 
 Pbsfiles/cyclic/a.c
 Pbsfiles/cyclic/a.h
 Pbsfiles/cyclic/b.c
 Pbsfiles/cyclic/b.h
-Pbsfiles/cyclic/Pbs.prf
+Pbsfiles/cyclic/pbs.prf
 Pbsfiles/cyclic/Pbsfile.pl
+
+t/pbs_test.pl
 
 t/Correctness/OneCFile.pm
 t/Correctness/IncludeFiles.pm
 t/Correctness/TwoCFiles.pm
 t/Correctness/DependencyGraphIsNotATree.pm
+t/Correctness/CDepender.pm
+t/Correctness/DependingPbsfile.pm
 
 t/ErrorHandling/NonExisting.pm
 t/ErrorHandling/BuildError.pm
@@ -299,6 +353,7 @@ t/Misc/CDependencyGraph.pm
 t/Misc/Triggers.pm
 
 t/Rules/Dependencies.pm
+t/Rules/LateDependencies.pm
 t/Rules/Builder.pm
 t/Rules/NodeSubs.pm
 t/Rules/NodeAttributes.pm
@@ -307,8 +362,42 @@ t/Rules/ReplaceRule.pm
 t/PBS.pm
 t/AllTests.pm
 t/run_many_times.t
-t/with_warp.t
+t/with_warp_1_5.t
+t/with_warp_1_7.t
 t/without_warp.t
 t/TestClassTemplate.pm
 t/documentation.pod
 t/TODO
+
+t/setup_data/c_depender/1.c
+t/setup_data/c_depender/2.c
+t/setup_data/c_depender/3.c
+t/setup_data/c_depender/a.h
+t/setup_data/c_depender/b.h
+t/setup_data/c_depender/a2.h
+t/setup_data/c_depender/b2.h
+t/setup_data/c_depender/b3.h
+t/setup_data/c_depender/1_2.c
+t/setup_data/c_depender/2_2.c
+t/setup_data/c_depender/2_3.c
+t/setup_data/c_depender/2_error.c
+t/setup_data/c_depender/Pbsfile.pl
+t/setup_data/c_depender/Pbsfile2.pl
+t/setup_data/c_depender/1_error.c
+t/setup_data/c_depender/Pbsfile_abort.pl
+
+t/setup_data/depending_pbsfile/Subpbs.pl
+t/setup_data/depending_pbsfile/Pbsfile.pl
+
+
+script/make_pbs_exe.pl
+script/run_pbs_win32.pl
+
+Pbsfiles/emil_subpbs_locate/sd1/a.c
+Pbsfiles/emil_subpbs_locate/sd1/b/a.h
+Pbsfiles/emil_subpbs_locate/sd1/pbs.prf
+Pbsfiles/emil_subpbs_locate/sd1/Pbsfile.pl
+Pbsfiles/emil_subpbs_locate/sd2/b/a.h
+
+
+

@@ -30,7 +30,17 @@ The dependency graph is then merged with the global dependency graph. I finally 
 dependencies to the C file. As the nodes have already been merged, I<PBS> will only link to those dependencies.
 
 Since the header files are also considered source, we need to tell I<PBS> that the C file must be "rebuild". This is
-done by returning "__PBS_FORCE_TRIGGER" as one of the dependencies.
+done by returning "__PBS_FORCE_TRIGGER::" as one of the dependencies.
+
+The C depender , which is a normal depender,  merges the dependency nodes directely in the dependency graph.
+It also implements a distrubuted cache on the behalf of PBS. When a cache is regenerated, it cannot be used before
+successfull build is done. The C depender doesn't know about when a successfull build has occured and it must 
+relly on PBS for the synchronisation.. The C depender doesn't know about what file depends on a C file. It could
+be an object file or any other file. The dependency could also be indirect.
+
+TODO: __PBS_SYNCHRONIZE:
+explain how the synchronizing works
+explain how we use the unsynchronized cache to not redepend 
 
 =cut
 
@@ -39,6 +49,7 @@ use warnings ;
 use Data::TreeDumper ;
 
 use PBS::PBS ;
+use PBS::Depend ;
 use PBS::PBSConfig ;
 use PBS::Digest;
 use PBS::Rules ;
@@ -52,19 +63,26 @@ use Time::HiRes qw(gettimeofday tv_interval) ;
 
 use Digest::MD5 qw(md5_hex) ;
 
-our $VERSION = '0.08' ;
+our $VERSION = '0.12' ;
 
 #-------------------------------------------------------------------------------
 
-# verify PreprocessorDepend is defined in the current package
+#~ # verify PreprocessorDepend is defined in the current package
+#~ # since $PreprocessorDepend is a 'my' variable that might or might not exists
+#~ # we can not use it directly as perl would complain about an unexisting variable 
+#~ # at compile time. We go through hoops to check if the variable exists.
 
-unless (*PreprocessorDepend{CODE})
+my $C_Depender_PreprocessorDepend ;
+eval "\$C_Depender_PreprocessorDepend = \$PreprocessorDepend" ;
+
+if($@)
 	{
-	PrintError "Error in package '" . __PACKAGE__ . "': 'PreprocessorDepend' must be defined for the C depender to work!\n"
-		. "Did you forget to use a depending module defining 'PreprocessorDepend' in your config?\n"
+	PrintError "Error in package '" . __PACKAGE__ . "': '\$PreprocessorDepend' must be defined for the C depender to work!\n"
+		. "Did you forget to use a depending module defining '\$PreprocessorDepend' in your config?\n"
 		. "   ex: use Devel::Depend::Cpp ;\n\n" ;
 	
-	die ;
+	$@ = "" ;
+	die "";
 	}
 
 #-------------------------------------------------------------------------------
@@ -84,12 +102,29 @@ sub C_SourceDepender
 # the depend is done with the help of the compiler. The dependencies are md5'ed
 # and thorougly verified. --ncd makes this depender return 0 dependencies.
 
+#~ PrintDebug "2/ " . __PACKAGE__ .  "  C_SourceDepender"  . \&PreprocessorDepend . "\n" ;
+
 my $dependent      = shift ; 
 my $config         = shift ; 
 my $file_tree      = shift ;
 my $inserted_nodes = shift ;
 
 return([0, 'not a .c/.cpp file']) unless $dependent =~ /\.c(pp)?$/ ;
+
+# rules can (and are) be called multiple times for the same node, PBS uses
+# this system to verify linked nodes with localy defined rules
+if
+	(
+	exists $file_tree->{__INSERTED_AT} 
+	&& exists $file_tree->{__INSERTED_AT}{INSERTION_FILE} 
+	&& $file_tree->{__INSERTED_AT}{INSERTION_FILE} eq '__C_DEPENDER'
+	)
+	{
+	PrintWarning "C Depender: You have included a C file ($dependent) from another C file! Compile the C file or change its extention to remove this warning. Also try -dd.\n" ;
+	return([0, 'already depended and merged']);
+	}
+	
+my $c_file_config  = $file_tree->{__CONFIG}; 
 
 if(defined $file_tree->{__PBS_CONFIG}{NO_C_DEPENDENCIES})
 	{
@@ -99,7 +134,7 @@ else
 	{
 	my $t0_depend = [gettimeofday];
 	
-	Check_C_DependerConfig($config) ; #dies on error
+	Check_C_DependerConfig($c_file_config) ; #dies on error
 	
 	my $build_directory    = $file_tree->{__PBS_CONFIG}{BUILD_DIRECTORY} ;
 	my $source_directories = $file_tree->{__PBS_CONFIG}{SOURCE_DIRECTORIES} ;
@@ -130,13 +165,23 @@ else
 			
 	$dependency_file_name = CollapsePath($dependency_file_name) ;
 	
+	# C files with full path get their dependency file in the same path as the 
+	# C file defeating the output path
+	if(File::Spec->file_name_is_absolute($dependent))
+		{
+		my ($volume,$directories,$file) = File::Spec->splitpath($dependent);
+		$dependency_file_name = "$build_directory/ROOT${directories}$file.depend" ;
+		}
+	
 	my @dependencies = () ;
 	
 	if(-e $full_name)
 		{
+		#~ my $t0_VerifyAndGenerateDependencies = [gettimeofday];
+		
 		@dependencies = VerifyAndGenerateDependencies
 					(
-					  $config
+					  $c_file_config
 					, $dependent
 					, $full_name
 					, $dependency_file_name
@@ -146,6 +191,8 @@ else
 					, $file_tree
 					, $inserted_nodes
 					) ;
+					
+		#~ PrintDebug "VerifyAndGenerateDependencies time: " . tv_interval ($t0_VerifyAndGenerateDependencies, [gettimeofday]) . "\n" ;
 		}
 	else
 		{
@@ -160,12 +207,12 @@ else
 		die ;
 		}
 		
-	$file_tree->{__FIXED_BUILD_NAME} = $full_name ;
+	$file_tree->{__FIXED_BUILD_NAME} = $full_name ;  # used in Check.pm
 	
 	$PBS::C_DEPENDER::c_dependency_time += tv_interval ($t0_depend, [gettimeofday]) ;
 	$PBS::C_DEPENDER::c_files++ ;
 	
-	return([scalar(@dependencies), @dependencies]) ;
+	return([1, @dependencies]) ;
 	}
 }
 
@@ -197,51 +244,167 @@ my $display_c_dependencies = shift ;
 my $tree                   = shift ;
 my $inserted_nodes         = shift ;
 
+my @first_level_dependencies = () ;
+
+#~ PrintInfo "=> $dependency_file_name \n" ;
+
 my ($dependency_file_needs_update, $pbs_include_tree) = Verify_C_FileDigest($file_to_depend, $dependency_file_name, $config, $tree) ;
+
+#~ PrintDebug "'$dependency_file_name' => $dependency_file_needs_update\n" ;
+
+my $signature = PBS::Warp1_5::GetWarpSignature([$file_to_depend], $tree->{__PBS_CONFIG}) ;
+my $unsynchronized_dependency_file_name = "${dependency_file_name}_$signature" ;
 
 if($dependency_file_needs_update)
 	{
-	return
-		(
-		GenerateDependencyFile
+	if(-e $unsynchronized_dependency_file_name)
+		{
+		# check if a valid un-synched cache exists (a rather high probability)
+		
+		my ($unsynched_dependency_file_needs_update, $unsynched_pbs_include_tree) = Verify_C_FileDigest($file_to_depend, $unsynchronized_dependency_file_name , $config, $tree) ;
+		if($unsynched_dependency_file_needs_update)
+			{
+			if(defined $tree->{__PBS_CONFIG}{DISPLAY_C_DEPENDENCY_INFO})
+				{
+				PrintInfo "   Verifying unsynchronized cache ... Invalid, regenerating.\n" ;
+				}
+				
+			# regenerate cache, merge, tag as unsynched
+			@first_level_dependencies = 
+				(
+				GenerateDependencyFile
+						(
+						  $config
+						, $dependent
+						, $file_to_depend
+						, $unsynchronized_dependency_file_name # regenerate
+						, $source_directory
+						, $source_directories
+						, $display_c_dependencies
+						, $tree
+						, $inserted_nodes
+						)
+						
+				, PBS::Depend::FORCE_TRIGGER("$file_to_depend digest rebuilt.")
+				, PBS::Depend::SYNCHRONIZE
+					(
+					  $unsynchronized_dependency_file_name
+					, $dependency_file_name
+					, "Synchronized C cache file for '%s'\n"
+					)
+				) ;
+			}
+		else
+			{
+			if(defined $tree->{__PBS_CONFIG}{DISPLAY_C_DEPENDENCY_INFO})
+				{
+				PrintInfo "   Verifying unsynchronized cache ... Valid.\n" ;
+				}
+			
+			@first_level_dependencies = 
+				(
+				MergeDependencyCache
+					(
+					  $file_to_depend
+					, $dependent
+					, $display_c_dependencies
+					, $tree
+					, $inserted_nodes
+					, $unsynched_pbs_include_tree
+					)
+				, PBS::Depend::FORCE_TRIGGER("$file_to_depend digest rebuilt.")
+				, PBS::Depend::SYNCHRONIZE
+					(
+					  $unsynchronized_dependency_file_name
+					, $dependency_file_name
+					, "Synchronized C cache file for '%s'\n"
+					)
+				) ;
+			}
+		}
+	else
+		{
+		@first_level_dependencies  =
 			(
-			  $config
-			, $dependent
-			, $file_to_depend
-			, $dependency_file_name
-			, $source_directory
-			, $source_directories
-			, $display_c_dependencies
-			, $tree
-			, $inserted_nodes
-			)
-		) ;
+			GenerateDependencyFile
+				(
+				  $config
+				, $dependent
+				, $file_to_depend
+				, $unsynchronized_dependency_file_name
+				, $source_directory
+				, $source_directories
+				, $display_c_dependencies
+				, $tree
+				, $inserted_nodes
+				)
+			, PBS::Depend::FORCE_TRIGGER("$file_to_depend digest rebuilt.")
+			, PBS::Depend::SYNCHRONIZE
+				(
+				  $unsynchronized_dependency_file_name
+				, $dependency_file_name
+				, "Synchronized C cache file for '%s'\n"
+				)
+			) ;
+		}
 	}
 else
 	{
-	$PBS::C_DEPENDER::c_files_cached++ ;
-	
-	if($display_c_dependencies)
+	@first_level_dependencies = MergeDependencyCache
+					(
+					  $file_to_depend
+					, $dependent
+					, $display_c_dependencies
+					, $tree
+					, $inserted_nodes
+					, $pbs_include_tree
+					) ;
+					
+	if(-e $unsynchronized_dependency_file_name)
 		{
-		PrintInfo(DumpTree($pbs_include_tree->{$file_to_depend}, "'$dependent' includes (cache):", FILTER => \&GetDependenciesOnly)) ;
-		print "\n" ;
+		# trigger
+		push @first_level_dependencies, PBS::Depend::FORCE_TRIGGER("$file_to_depend found synchronized and unsynchronized cache.") ;
+		unlink $unsynchronized_dependency_file_name ;
 		}
-		
-	my $time = Time::HiRes::time() ;
-	
-	my @dependencies ;
-	for my $key (keys %{$pbs_include_tree->{$file_to_depend}})
-		{
-		if($key !~ /^__/)
-			{
-			push @dependencies, $key ;
-			
-			MergeNode($pbs_include_tree->{$file_to_depend}{$key}, $inserted_nodes, $time, $tree->{__LOAD_PACKAGE}) ;
-			}
-		}
-		
-	return(@dependencies) ;
 	}
+	
+return(@first_level_dependencies) ;
+}
+
+sub MergeDependencyCache
+{
+my
+(
+  $file_to_depend
+, $dependent
+, $display_c_dependencies
+, $tree
+, $inserted_nodes
+, $pbs_include_tree
+) = @_ ;
+
+$PBS::C_DEPENDER::c_files_cached++ ;
+
+if($display_c_dependencies)
+	{
+	PrintInfo(DumpTree($pbs_include_tree->{$file_to_depend}, "'$dependent' includes (cache):", FILTER => \&GetDependenciesOnly)) ;
+	print "\n" ;
+	}
+	
+my $time = Time::HiRes::time() ;
+
+my @dependencies ;
+for my $key (keys %{$pbs_include_tree->{$file_to_depend}})
+	{
+	if($key !~ /^__/)
+		{
+		push @dependencies, $key ;
+		
+		MergeNode($pbs_include_tree->{$file_to_depend}{$key}, $inserted_nodes, $time, $tree->{__LOAD_PACKAGE}) ;
+		}
+	}
+	
+return(@dependencies) ;
 }
 
 #-------------------------------------------------------------------------------
@@ -275,6 +438,7 @@ my $file_to_depend       = shift ;
 my $dependency_file_name = shift ;
 my $config               = shift ;
 my $tree                 = shift ;
+
 
 my $dependency_file_needs_update = 0 ;
 
@@ -347,7 +511,7 @@ if(-e $dependency_file_name)
 						{
 						if(defined $tree->{__PBS_CONFIG}{DISPLAY_C_DEPENDENCY_INFO})
 							{
-							PrintInfo("C_depender: '$file_to_depend' [MD5 difference]\n   [$dependency].\n") ;
+							PrintInfo("C_depender: '$file_to_depend' [MD5 difference]:\n   [$dependency].\n") ;
 							}
 						$dependency_file_needs_update++ ;
 						last ;
@@ -410,6 +574,7 @@ if(-e $dependency_file_name)
 				$nodes->{$node}{__PBS_CONFIG} = $global_pbs_config unless exists $nodes->{$node}{__PBS_CONFIG} ;
 				
 				$nodes->{$node}{__INSERTED_AT}{INSERTION_FILE} = $insertion_file_names->[$nodes->{$node}{__INSERTED_AT}{INSERTION_FILE}] ;
+				$nodes->{$node}{__INSERTED_AT}{INSERTION_RULE} = 'CACHE' ;
 				
 				unless(exists $nodes->{$node}{__DEPENDED_AT})
 					{
@@ -464,6 +629,51 @@ return($dependency_file_needs_update, {$root_node => $nodes->{$root_node}}) ;
 
 #-------------------------------------------------------------------------------
 
+sub GetCFileIncludePaths
+{
+my ($tree) = @_;
+	
+my $pbs_config = $tree->{__PBS_CONFIG};
+
+my @source_directories = @{ $pbs_config->{SOURCE_DIRECTORIES} };
+
+my $config = $tree->{__CONFIG};
+my @include_paths = split(/\s*-I\s*/, $config->{CFLAGS_INCLUDE});
+# Remove the empty element before the first -I
+shift @include_paths;
+
+my $dependent = $tree->{__NAME};
+my $dependent_path = (File::Basename::fileparse($dependent))[1] ;
+
+my $result = '';
+
+# Add the dependent path, to make includes like: #include "header" work
+for my $include_path ($dependent_path, @include_paths)
+	{
+	$include_path =~ s~/$~~ ;
+	$include_path =~ s|^"||;
+	$include_path =~ s|"$||;
+	$include_path =~ s/^\s+// ;
+	$include_path =~ s/\s+$// ;
+	
+	if (File::Spec->file_name_is_absolute($include_path))
+		{
+		$result .= qq| -I "$include_path"|;
+		}
+	else
+		{
+		for my $source_directory (@source_directories)
+			{
+			$result .= ' -I "' . CollapsePath("$source_directory/$include_path") . '"';
+			}
+		}
+	}
+	
+return $result;
+}
+
+#-------------------------------------------------------------------------------
+
 sub GenerateDependencyFile
 {
 my $config                 = shift ;
@@ -481,23 +691,8 @@ Check_C_DependerConfig($config) ;
 # Create the path for the dependency file if necessary
 File::Path::mkpath((File::Basename::fileparse($dependency_file_name))[1]) ;
 
-my $depend_switches = "$config->{CDEFINES} $config->{CFLAGS_INCLUDE} " ;
+my $depend_switches = "$config->{CDEFINES} " . GetCFileIncludePaths($tree);
 
-# Add the source path to the include pathes for includes like: #include "header"
-my $target_path = (File::Basename::fileparse($dependent))[1] ;
-$target_path =~ s~/$~~ ;
-
-$depend_switches .= "-I$target_path " unless $config->{CFLAGS_INCLUDE} =~ "-I$target_path" ;
-
-if($dependent =~ /^\./)
-	{
-	for my $repository (@$source_directories)
-		{
-		my $repository_path = CollapsePath("$repository/$target_path") ;
-		$depend_switches .= "-I$repository_path " unless $config->{CFLAGS_INCLUDE} =~ "-I$repository_path" ;
-		}
-	}
-	
 my @dependencies ;
 
 my $depend_info = '' ;
@@ -529,7 +724,7 @@ $depend_nodes{$file_to_depend} =
 	__INSERTED_AT =>
 		{
 		  INSERTING_NODE => '__C_DEPENDER'
-		, INSERTION_RULE => '__C_DEPENDER'
+		, INSERTION_RULE => 'NO CACHE'
 		, INSERTION_FILE => '__C_DEPENDER'
 		, INSERTION_PACKAGE=> '__C_DEPENDER'
 		},
@@ -564,7 +759,7 @@ my $ParentChild = sub
 			, __INSERTED_AT =>
 				{
 				  INSERTING_NODE => $parent
-				, INSERTION_RULE => '__C_DEPENDER'
+				, INSERTION_RULE => 'NO_CACHE'
 				, INSERTION_FILE => '__C_DEPENDER'
 				, INSERTION_TIME => 0
 				}
@@ -603,15 +798,16 @@ my $ParentChild = sub
 		}
 	} ;
 
+
 my ($depended, $include_levels, $include_nodes, $include_tree, $errors) 
-	= PreprocessorDepend
+	= $C_Depender_PreprocessorDepend->
 		(
 		  $config->{'CPP'}
 		, $file_to_depend
 		, $depend_switches 
 		, $config->{'C_DEPENDER_SYSTEM_INCLUDES'}
 		, $ParentChild
-		, #1 # display gcc output
+		, $tree->{__PBS_CONFIG}{DISPLAY_CPP_OUTPUT} # display gcc output
 		) ;
 		
 if($depended)
@@ -675,7 +871,15 @@ if($depended)
 	$include_tree_dump .= "\n" ;
 	}
 	
-	PBS::Digest::WriteDigest($dependency_file_name, "Generated by C_depender $VERSION using warp 1.5", $dependency_file_digest, $include_tree_dump) ;
+	my $signature = PBS::Warp1_5::GetWarpSignature([$file_to_depend], $tree->{__PBS_CONFIG}) ;
+	
+	PBS::Digest::WriteDigest
+		(
+		  $dependency_file_name
+		, "Generated by C_depender $VERSION using warp 1.5"
+		, $dependency_file_digest
+		, $include_tree_dump
+		) ;
 
 	if($display_c_dependencies)
 		{
@@ -697,7 +901,7 @@ if($depended)
 			}
 		}
 		
-	return(@dependencies, "__PBS_FORCE_TRIGGER:$file_to_depend digest rebuilt.") ;
+	return(@dependencies) ;
 	}
 else
 	{
@@ -761,18 +965,20 @@ my $config = shift ;
 unless(defined $config->{CC})
 	{
 	PrintError("Configuration variable 'CC' doesn't exist. Aborting.\n") ;
+	use Carp ;
+	confess ;
 	die ;
 	}
 
 unless (defined $config->{CFLAGS_INCLUDE})
 	{
-	PrintWarning("Configuration variable 'CFLAGS_INCLUDE' doesn't exist. Aborting.\n") ;
+	PrintError("Configuration variable 'CFLAGS_INCLUDE' doesn't exist. Aborting.\n") ;
 	die ;
 	}
 	
 unless (defined $config->{CDEFINES})
 	{
-	PrintWarning("Configuration variable 'CDEFINES' doesn't exist. Aborting.\n") ;
+	PrintError("Configuration variable 'CDEFINES' doesn't exist. Aborting.\n") ;
 	die ;
 	}
 }

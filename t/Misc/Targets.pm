@@ -60,7 +60,7 @@ sub default_target : Test(3) {
     AddRule 'b', ['b' => 'b.in'] =>
 	'cat %DEPENDENCY_LIST > %FILE_TO_BUILD';
 _EOF_
-    $t->write('Pbs.prf', "b\n");
+    $t->write('pbs.prf', "AddTargets('b') ;\n");
     $t->write('a.in', 'file contents');
     $t->write('b.in', 'file2 contents');
 

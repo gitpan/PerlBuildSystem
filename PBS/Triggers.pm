@@ -7,7 +7,7 @@ use 5.006 ;
 use strict ;
 use warnings ;
 use Carp ;
- 
+
 require Exporter ;
 use AutoLoader qw(AUTOLOAD) ;
 
@@ -19,11 +19,13 @@ our $VERSION = '0.01' ;
 
 use File::Basename ;
 use Text::Balanced qw(extract_codeblock) ;
+use File::Spec::Functions qw(:ALL) ;
 
 use PBS::Output ;
 use PBS::Constants ;
 use PBS::Rules ;
 use PBS::Plugin ;
+use PBS::PBSConfig ;
 
 use Data::TreeDumper ;
 #-------------------------------------------------------------------------------
@@ -59,7 +61,9 @@ $file_name =~ s/'$// ;
 my(@trigger_definition) = @_ ;
 my $trigger_definition = \@trigger_definition ;
 
-my ($name, $triggered_and_triggering) = RunUniquePluginSub('AddTrigger', $file_name, $line, $trigger_definition) ;
+my $pbs_config = PBS::PBSConfig::GetPbsConfig($package) ;
+
+my ($name, $triggered_and_triggering) = RunUniquePluginSub($pbs_config, 'AddTrigger', $file_name, $line, $trigger_definition) ;
 
 # the trigger definition is either
 #1/ the name of the triggered tree followed by simplified dependency regexes
@@ -122,7 +126,7 @@ if('ARRAY' eq ref $trigger_definition)
 	
 	my @trigger_regexes ;
 	
-	unless(File::Spec->file_name_is_absolute($triggered_node) || $triggered_node =~ /^\.\//)
+	unless(file_name_is_absolute($triggered_node) || $triggered_node =~ /^\.\//)
 		{
 		$triggered_node = "./$triggered_node" ;
 		}

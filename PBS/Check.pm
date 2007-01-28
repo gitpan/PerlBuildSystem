@@ -6,7 +6,7 @@ use strict ;
 use warnings ;
 use Data::Dumper ;
 use Data::TreeDumper ;
-
+use File::Spec::Functions qw(:ALL) ;
 use 5.006 ;
  
 require Exporter ;
@@ -19,6 +19,7 @@ our @EXPORT = qw(CheckDependencyTree RegisterUserCheckSub) ;
 our $VERSION = '0.04' ;
 
 use File::Basename ;
+use Time::HiRes qw(gettimeofday tv_interval) ;
 
 use PBS::Cyclic ;
 use PBS::Output ;
@@ -46,18 +47,20 @@ return($global_user_check_subs{$package}) ;
 
 #-----------------------------------------------------------------------------
 
-my @rotor = qw( | / - \\ ) ;
-my $rotor = 0 ;
+my $checked_dependency_tree = 0 ;
+my $total_time_e = 0 ;
+my $total_time_l = 0 ;
+my $total_time_e2 = 0 ;
+my $total_time_l0 = 0 ;
+my $total_time_digest = 0 ;
 
 sub CheckDependencyTree
 {
 # also checks the tree for cyclic dependencies
 # generates a build sequence
 
-$rotor++ ;
-$rotor %= @rotor ;
-my $rotor_char = $rotor[$rotor] ;
-print "$rotor_char\r" ;
+$checked_dependency_tree++ ;
+print "$checked_dependency_tree\r" ;
 
 my $tree                     = shift ;
 my $inserted_nodes           = shift ; # this is to be considered read only
@@ -93,20 +96,60 @@ my $name = $tree->{__NAME} ;
 
 if(exists $tree->{__CYCLIC_FLAG})
 	{
-	$tree->{__CYCLIC_ROOT}++ ;
+	# les this sub find the cycle
+	if($tree->{__CYCLIC_FLAG} > 1)
+		{
+		$tree->{__CYCLIC_ROOT}++; # used in graph generation
+		
+		# already displayed the cycle, stop cycling
+		
+		die if(PBS::Digest::IsDigestToBeGenerated($tree->{__LOAD_PACKAGE}, $tree)) ;
+		
+		if($pbs_config->{DIE_SOURCE_CYCLIC_WARNING})
+			{
+			die ;
+			}
+		else
+			{
+			if(exists $tree->{__TRIGGERED})
+				{
+				return(1) ;
+				}
+			else
+				{
+				return(0) ;
+				}
+			}
+		}
 	
-	my ($number_of_cycles, $cyclic_dump) = PBS::Cyclic::GetUserCyclicText($tree, $inserted_nodes, $pbs_config) ;
+	my $node_info = "inserted at '$tree->{__INSERTED_AT}{INSERTION_FILE}' rule '$tree->{__INSERTED_AT}{INSERTION_RULE}'" ;
 	
-	my $plural = $number_of_cycles == 1? '' : 's' ;
-	PrintError("Dependency cycle$plural detected!\n$cyclic_dump\n") ;
-	
-	warn DumpTree($tree, "Cyclic tree:") if (defined $pbs_config->{DEBUG_DISPLAY_CYCLIC_TREE}) ;
-	die ;
+	if(PBS::Digest::IsDigestToBeGenerated($tree->{__LOAD_PACKAGE}, $tree))
+		{
+		PrintError "Cycle at node '$name' $node_info.\n" ;
+		}
+	else
+		{
+		PrintWarning "Cycle at node '$name' $node_info (source node).\n" unless ($pbs_config->{NO_SOURCE_CYCLIC_WARNING}) ;
+		}
 	}
 	
 $tree->{__CYCLIC_FLAG}++ ; # used to detect when a cycle has started
 
+unless(exists $tree->{__DEPENDED})
+	{
+	if(PBS::Digest::IsDigestToBeGenerated($tree->{__LOAD_PACKAGE}, $tree))
+		{
+		PrintWarning "Node '$name' was not depended! "
+			. "Node was inserted at '$tree->{__INSERTED_AT}{INSERTION_FILE}'"
+			. " rule '$tree->{__INSERTED_AT}{INSERTION_RULE}'\n" ;
+		}
+	}
+	
+my $t0 = [gettimeofday];
 my ($full_name, $is_alternative_source, $alternative_index) = LocateSource($name, $build_directory, $source_directories) ;
+my $time_l0 = tv_interval ($t0, [gettimeofday]) ;
+$total_time_l0 += $time_l0 ;
 
 if ($is_alternative_source)
 	{
@@ -169,6 +212,7 @@ if(defined $tree->{__USER_ATTRIBUTE})
 	
 
 $full_name = $tree->{__FIXED_BUILD_NAME} if(exists $tree->{__FIXED_BUILD_NAME}) ;
+
 $tree->{__BUILD_NAME} = $full_name ;
 
 if($pbs_config->{DISPLAY_FILE_LOCATION} && $name !~ /^__/)
@@ -220,6 +264,12 @@ if(exists $tree->{__FORCED})
 #----------------------------------------------------------------------------
 
 my $node_exist_on_disk = 1 ;
+
+$t0 = [gettimeofday];
+
+#~ =comment
+
+# self is part of the digest this check is redundant
 unless(-e $full_name)
 	{
 	unless(exists $tree->{__VIRTUAL})
@@ -230,6 +280,10 @@ unless(-e $full_name)
 		$triggered++ ;
 		}
 	}
+#~ =cut
+
+my $time_e = tv_interval ($t0, [gettimeofday]) ;
+$total_time_e += $time_e ;
 
 if(defined $node_checker_rule)
 	{
@@ -242,21 +296,32 @@ if(defined $node_checker_rule)
 		}
 	}
 
+if(exists $tree->{__PBS_FORCE_TRIGGER})
+	{
+	for my $forced_trigger (@{$tree->{__PBS_FORCE_TRIGGER}})
+		{
+		if('PBS_FORCE_TRIGGER' eq ref $forced_trigger )
+			{
+			my $message = $forced_trigger->{MESSAGE} ;
+			
+			PrintInfo("$name: trigged because of $message\n") if $pbs_config->{DEBUG_DISPLAY_TRIGGED_DEPENDENCIES} ;
+			
+			push @{$tree->{__TRIGGERED}}, $forced_trigger ;
+			$triggered++ ;
+			}
+		else
+			{
+			die "trigger is not of type 'PBS_FORCE_TRIGGER'!" ;
+			}
+		}
+	}
+	
 for my $dependency (keys %$tree)
 	{
-	if($dependency =~ /^__PBS_FORCE_TRIGGER(?::(.*))?/)
-		{
-		# the C depender and other depender can use this if they want to trigger a node rebuild
-		
-		my $reason = defined $1 ? "__$1" : '__PBS_FORCE_TRIGGER, no reason given' ;
-		PrintInfo("$name: trigged because of $reason\n") if $pbs_config->{DEBUG_DISPLAY_TRIGGED_DEPENDENCIES} ;
-		
-		push @{$tree->{__TRIGGERED}}, {NAME => $reason, REASON => $reason} ;
-		$triggered++ ;
-		}
-		
 	next if $dependency =~ /^__/ ; # eliminate private data
 	
+	my $t0 = [gettimeofday];
+=comment
 	my ($full_dependency, undef) = LocateSource
 												(
 												$dependency
@@ -265,7 +330,15 @@ for my $dependency (keys %$tree)
 		 										, $pbs_config->{DISPLAY_SEARCH_INFO} || 0
 												, $pbs_config->{DISPLAY_SEARCH_ALTERNATES} || 0
 												) ;
-												
+=cut
+	my $time_l = tv_interval ($t0, [gettimeofday]) ;
+	$total_time_l += $time_l ;
+	
+	$t0 = [gettimeofday];
+=comment
+
+# dependencies are in the digest, no need to check them
+
 	if(-e $full_dependency)
 		{
 		unless(exists $tree->{__VIRTUAL})
@@ -273,7 +346,7 @@ for my $dependency (keys %$tree)
 			# check via user defined sub
 			if(defined $trigger_rule)
 				{
-				my ($must_build, $why) = $trigger_rule->($tree, $full_name, $dependency, $full_dependency) ;
+				my ($must_build, $why) = $trigger_rule->($tree, $full_name, $tree->{$dependency}, $full_dependency) ;
 				
 				if($must_build)
 					{
@@ -291,8 +364,6 @@ for my $dependency (keys %$tree)
 					}
 				}
 			}
-		#else
-			# node already triggered by type virtual
 		}
 	else
 		{
@@ -310,6 +381,9 @@ for my $dependency (keys %$tree)
 					}
 			}
 		}
+=cut
+	my $time_e2 = tv_interval ($t0, [gettimeofday]) ;
+	$total_time_e2 += $time_e2 ;
 		
 	if(exists $tree->{$dependency}{__CHECKED})
 		{
@@ -352,25 +426,45 @@ for my $dependency (keys %$tree)
 		}
 	}
 
-unless($pbs_config->{NO_DIGEST} || exists $tree->{__VIRTUAL})
+if(exists $tree->{__VIRTUAL})
 	{
-	# check digest
-	my ($must_build_because_of_digest, $reason) = (0, '') ;
-	($must_build_because_of_digest, $reason) = PBS::Digest::IsNodeDigestDifferent($tree) unless $triggered ;
+	# no digest files for virtual nodes
+	}
+else
+	{
+	# the dependencies have been checked recursively ; the only thing a digest check could trigger with is package or node depndencies
+	# like pbsfile, variables, etc.. there should be a switch to only check that
 	
-	if($must_build_because_of_digest)
+	unless($triggered)
 		{
-		push @{$tree->{__TRIGGERED}}, {NAME => '__DIGEST_TRIGGERED', REASON => $reason} ;
-		PrintInfo("$name: trigged on '__DIGEST_TRIGGERED'[$reason]\n") if $pbs_config->{DEBUG_DISPLAY_TRIGGED_DEPENDENCIES} ;
-		$triggered++ ;
+		# check digest
+		my $t0 = [gettimeofday];
+		
+		my ($must_build_because_of_digest, $reason) = (0, '') ;
+		($must_build_because_of_digest, $reason) = PBS::Digest::IsNodeDigestDifferent($tree) unless $triggered ;
+
+		my $time_digest = tv_interval ($t0, [gettimeofday]) ;
+		$total_time_digest += $time_digest ;
+		
+		if($must_build_because_of_digest)
+			{
+			push @{$tree->{__TRIGGERED}}, {NAME => '__DIGEST_TRIGGERED', REASON => $reason} ;
+			PrintInfo("$name: trigged on '__DIGEST_TRIGGERED'[$reason]\n") if $pbs_config->{DEBUG_DISPLAY_TRIGGED_DEPENDENCIES} ;
+			
+			# since we allow nodes to be build by the step before check (ex object files  with "depend and build"
+			# we still want to trigger the node as some particular tasks might be done by the "builder
+			# ie: write a digest for the node ot run post build commands
+			$triggered++ ;
+			
+			# but we do not want to rebuild the node if we've just done that
+			#~ delete $tree->{__BUILD_DONE} ;
+			}
 		}
 	}
 
 # node is checked, add it to the build sequence if triggered
 if($triggered)
 	{
-	delete $tree->{__BUILD_DONE} ;
-	
 	my $full_name ;
 	if(exists $tree->{__FIXED_BUILD_NAME})
 		{
@@ -385,7 +479,7 @@ if($triggered)
 		{
 		if(defined $pbs_config->{DISPLAY_ALL_FILE_LOCATION})
 			{
-			PrintWarning("Relocating '$name' @ '$full_name'\n")  ;
+			PrintWarning("Relocating '$name' @ '$full_name'\n\tWas $tree->{__BUILD_NAME}.\n")  ;
 			PrintWarning(DumpTree($tree->{__TRIGGERED}, 'Cause:')) ;
 			}
 			
@@ -393,6 +487,18 @@ if($triggered)
 		$tree->{__SOURCE_IN_BUILD_DIRECTORY} = 1 ;
 		delete $tree->{__ALTERNATE_SOURCE_DIRECTORY} ;
 		}
+		
+	# files with full path should be build in a shadow directory under the build directory
+	#~ if(file_name_is_absolute($tree->{__NAME}))
+		#~ {
+		#~ my ($volume,$directories,$file) = splitpath($tree->{__NAME});
+		
+		#~ if(PBS::Digest::IsDigestToBeGenerated($tree->{__LOAD_PACKAGE}, $tree))
+			#~ {
+			#~ $full_name = "$build_directory/ROOT${directories}$file" ;
+			#~ }
+		#~ }
+		
 		
 	$files_in_build_sequence->{$name} = $tree ;
 	push @$build_sequence, $tree  ;
@@ -443,12 +549,6 @@ else
 								
 								return($result) unless $result ;
 								
-								# NO_DIGEST switch is to be eliminated
-								#~ unless($_[6]->{__PBS_CONFIG}{NO_DIGEST})
-									#~ {
-									#~ $result = copy($repository_digest_name, $build_directory_digest_name) ;
-									#~ }
-									
 								return($result) ;
 								} ;
 							
@@ -496,6 +596,9 @@ else
 delete($tree->{__CYCLIC_FLAG}) ;
 $tree->{__CHECKED}++ ;
 
+#~ print "$total_time_l0  $total_time_e $total_time_l  $total_time_e2 $total_time_digest\n" if  $checked_dependency_tree  >3200 ;
+#~ print $total_time_l0  + $total_time_e + $total_time_l  + $total_time_e2 + $total_time_digest . "\n" if  $checked_dependency_tree  >3200 ;
+
 return($triggered) ;
 }
 
@@ -517,7 +620,7 @@ my $located_file = $file ; # for files starting at root
 my $alternative_source = 0 ;
 my $other_source_index = -1 ;
 
-unless(File::Spec->file_name_is_absolute($file))
+unless(file_name_is_absolute($file))
 	{
 	my $unlocated_file = $file ;
 	

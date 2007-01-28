@@ -129,7 +129,9 @@ $file_name =~ s/'$// ;
 my $class = 'User' ;
 
 my @rule_definition = @_ ;
-RunUniquePluginSub('AddRule', $file_name, $line, \@rule_definition) ;
+
+my $pbs_config = GetPbsConfig($package) ;
+RunUniquePluginSub($pbs_config , 'AddRule', $file_name, $line, \@rule_definition) ;
 
 my $first_argument = shift @rule_definition ;
 my ($name, $rule_type) ;
@@ -183,7 +185,9 @@ unless('' eq ref $class)
 	}
 
 my @rule_definition = @_ ;
-RunUniquePluginSub('AddRule', $file_name, $line, \@rule_definition) ;
+
+my $pbs_config = GetPbsConfig($package) ;
+RunUniquePluginSub($pbs_config, 'AddRule', $file_name, $line, \@rule_definition) ;
 
 my $first_argument = shift @rule_definition;
 my ($name, $rule_type) ;
@@ -231,7 +235,8 @@ $file_name =~ s/'$// ;
 my $class = 'User' ;
 
 my @rule_definition = @_ ;
-RunUniquePluginSub('AddRule', $file_name, $line, \@rule_definition) ;
+my $pbs_config = GetPbsConfig($package) ;
+RunUniquePluginSub($pbs_config , 'AddRule', $file_name, $line, \@rule_definition) ;
 
 my $first_argument = shift @rule_definition ;
 
@@ -282,7 +287,8 @@ $file_name =~ s/'$// ;
 my $class = shift ;
 
 my @rule_definition = @_ ;
-RunUniquePluginSub('AddRule', $file_name, $line, \@rule_definition) ;
+my $pbs_config = GetPbsConfig($package) ;
+RunUniquePluginSub($pbs_config, 'AddRule', $file_name, $line, \@rule_definition) ;
 
 my $first_argument = shift @rule_definition ;
 my ($name, $rule_type) ;
@@ -609,8 +615,10 @@ sub __AddSubpbsRule
 
 my ($package, $file_name, $line, $rule_definition) = @_ ;
 
+my $pbs_config = GetPbsConfig($package) ;
+
 my ($rule_name, $node_regex, $Pbsfile, $pbs_package, @other_setup_data) 
-	= RunUniquePluginSub('AddSubpbsRule', $file_name, $line, $rule_definition) ;
+	= RunUniquePluginSub($pbs_config, 'AddSubpbsRule', $file_name, $line, $rule_definition) ;
 
 RegisterRule
 	(

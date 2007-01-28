@@ -1,7 +1,7 @@
 Here is part of a mail I had with someone who wondered how fast PBS is
 
 > > - It is slow on windows, I have one or two solutions in mind none really
-> > good (that is as good as the way it works today). On a descent linux
+> > good (that is as good as the way it works today). On a decent linux
 > > system , it is fast enough. I am talking big systems here not 100 files
 > > and 50 rules.
 >
@@ -13,7 +13,7 @@ On linux:
 Nothing in the OS file cache.
 
 [nadim@khemir world]$ pbs -dpt
-No Build directory! Using '/devel/q04c1/obigo/projects/world/out_nadim'.
+No Build directory! Using '/devel/q04c1/TheBigO/projects/world/out_nadim'.
 Verifying warp 1.5: 1999 nodes ...
 Warp 1.5 verification time: 30.87 s.
 Running PBS in warp 1.5 mode. 2 nodes to rebuild.
@@ -26,7 +26,7 @@ Number of nodes in the dependency tree: 9 nodes.
 2 [1V, 2 P, 0 S] nodes scheduled for build.
   0%[                                                                                           ]
 
-Building /devel/q04c1/obigo/projects/world/out_nadim/world-obigo : BUILD_FAILED :
+Building /devel/q04c1/TheBigO/projects/world/out_nadim/world-TheBigO : BUILD_FAILED :
         Shell command failed!
         Command   : 'distcc -O2 -Wall -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -D_MODULE  ...
 
@@ -41,7 +41,7 @@ Total time in PBS: 43.33 s.
 *****************************************
 Second run
 [nadim@khemir world]$ pbs -dpt
-No Build directory! Using '/devel/q04c1/obigo/projects/world/out_nadim'.
+No Build directory! Using '/devel/q04c1/TheBigO/projects/world/out_nadim'.
 Verifying warp 1.5: 1999 nodes ...
 Warp 1.5 verification time: 21.82 s.
 Running PBS in warp 1.5 mode. 2 nodes to rebuild.
@@ -53,8 +53,8 @@ Total Check time: 0.01 s.
 Number of nodes in the dependency tree: 9 nodes.
 2 [1V, 2 P, 0 S] nodes scheduled for build.
   0%[                                                                                        ]
-/devel/q04c1/obigo/projects/world/out_nadim/main.o(.text+0x35): In function `main':
-/devel/q04c1/obigo/projects/world/main.c:10: undefined reference to 
+/devel/q04c1/TheBigO/projects/world/out_nadim/main.o(.text+0x35): In function `main':
+/devel/q04c1/TheBigO/projects/world/main.c:10: undefined reference to 
 
 Total build time: 5.73 s. Perl subs time: 5.73 s.
 Build failed.
@@ -68,7 +68,7 @@ Total time in PBS: 28.32 s.
 ... 5th run
 
 [nadim@khemir world]$ pbs -dpt -time_builders
-No Build directory! Using '/devel/q04c1/obigo/projects/world/out_nadim'.
+No Build directory! Using '/devel/q04c1/TheBigO/projects/world/out_nadim'.
 Verifying warp 1.5: 1999 nodes ...
 Warp 1.5 verification time: 0.94 s.
 Running PBS in warp 1.5 mode. 2 nodes to rebuild.
@@ -80,7 +80,7 @@ Total Check time: 0.01 s.
 Number of nodes in the dependency tree: 9 nodes.
 2 [1V, 2 P, 0 S] nodes scheduled for build.
   0% [                                                             ]
-/devel/q04c1/obigo/projects/world/out_nadim/main.o(.text+0x35): In function `main':
+/devel/q04c1/TheBigO/projects/world/out_nadim/main.o(.text+0x35): In function `main':
 ...
 
 Total build time: 4.31 s. Perl subs time: 4.31 s.
@@ -95,7 +95,7 @@ Total time in PBS: 5.94 s.
 here is the timing with the cache filled and no building:
 
 [nadim@khemir world]$ pbs -dpt -time_builders -no_build
-No Build directory! Using '/devel/q04c1/obigo/projects/world/out_nadim'.
+No Build directory! Using '/devel/q04c1/TheBigO/projects/world/out_nadim'.
 Verifying warp 1.5: 1999 nodes ...
 Warp 1.5 verification time: 0.90 s.
 Running PBS in warp 1.5 mode. 2 nodes to rebuild.
@@ -116,7 +116,7 @@ I a normal development environment, I'd say less than 2 seconds to check and beg
 without PBS cache (but with the filesystem cache full)
 
 [nadim@khemir world]$ pbs -dpt -no_warp -no_build
-No Build directory! Using '/devel/q04c1/obigo/projects/world/out_nadim'.
+No Build directory! Using '/devel/q04c1/TheBigO/projects/world/out_nadim'.
 Processed 118 Pbsfiles.
 Total dependency time: 12.68 s.
    C depender time: 2.16 s.
@@ -132,15 +132,15 @@ We also loaded perl and a bunch of modules.
 *****************************************
 
 For a smaller systems (OK still 500 C files):
-No Build directory! Using '/devel/q04c1/obigo/projects/PIP/out_nadim'.
+No Build directory! Using '/devel/q04c1/TheBigO/projects/PIP/out_nadim'.
 Verifying warp 1.5: 1349 nodes ...
 Warp 1.5 verification time: 0.59 s.
 Warp 1.5: Up to date.
 Total time in PBS: 0.67 s.
 
-[nadim@khemir PIP]$ rm -rf out_nadim/obigo/modules/stk
+[nadim@khemir PIP]$ rm -rf out_nadim/TheBigO/modules/stk
 [nadim@khemir PIP]$ pbs -dpt
-No Build directory! Using '/devel/q04c1/obigo/projects/PIP/out_nadim'.
+No Build directory! Using '/devel/q04c1/TheBigO/projects/PIP/out_nadim'.
 Verifying warp 1.5: 1349 nodes ...
 Warp 1.5 verification time: 0.50 s.
 Running PBS in warp 1.5 mode. 45 nodes to rebuild.

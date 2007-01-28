@@ -25,8 +25,7 @@ sub setup : Test(setup) {
 
     # A post-pbs that prints the dependencies for ./main.c
     $t->write('post_pbs.pl', <<'_EOF_');
-    for my $key(keys %{$inserted_nodes->{'./main.c'}}) {
-        next if $key =~ /^__/;
+    for my $key(keys %$inserted_nodes) {
         print "$key\n";
     }
 1;
@@ -36,7 +35,7 @@ _EOF_
 }
 
 my $file_pbsfile1 = <<"_EOF_";
-PbsUse('Configs/gcc');
+PbsUse('Configs/Compilers/gcc');
 PbsUse('Rules/C');
 
 AddRule 'test_c', [ 'test_c$t::PBS::_exe' => 'main.o' ] =>
@@ -66,14 +65,13 @@ sub c_dependency_graph : Test(5) {
     $t->build_test;
     my $stdout = $t->stdout;
     like($stdout, qr|inc\.h|, 'Include file is in dependency graph');
-    $t->dump_stdout_stderr ;
     $t->test_up_to_date;
     $stdout = $t->stdout;
-#    $t->dump_stdout_stderr ;
-#    $t->generate_test_snapshot_and_exit();
+    #~ $t->generate_test_snapshot_and_exit();
 
 # The bug was here. The cache didn't include the dependency inc.h
     like($stdout, qr|inc\.h|, 'Include file is in dependency graph');
+    #~ $t->generate_test_snapshot_and_exit();
 }
 
 

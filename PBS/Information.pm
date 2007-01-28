@@ -34,57 +34,15 @@ my $current_node_info = '' ;
 my $log_node_info     = '' ;
 my $node_info         = '' ;
 
-my (@dependencies, @located_dependencies) ;
-for (keys %$file_tree)
-	{
-	next if($_ =~ /^__/) ;
-	
-	push @dependencies, $file_tree->{$_}{__NAME} ;
-	
-	if(exists $file_tree->{$_}{__BUILD_NAME})
-		{
-		push @located_dependencies, $file_tree->{$_}{__BUILD_NAME} ;
-		}
-	}
+my $no_output = defined $PBS::Shell::silent_commands && defined $PBS::Shell::silent_commands_output ;
+$no_output = 0 if($pbs_config->{BUILD_AND_DISPLAY_NODE_INFO} || scalar(@{$pbs_config->{DISPLAY_NODE_INFO}})) ;
+$no_output = 1 if defined $pbs_config->{DISPLAY_NO_BUILD_HEADER} ;
 
-my (@triggered_dependencies, @display_triggered_dependencies, %triggered_dependencies_build_names) ;
-my @display_triggered_dependencies_located ;
+return if((! defined $pbs_config->{CREATE_LOG}) && $no_output) ;
 
-if(exists $file_tree->{__TRIGGERED})
-	{
-	for my $triggered_dependency_data (@{$file_tree->{__TRIGGERED}})
-		{
-		my $dependency_name = $triggered_dependency_data->{NAME} ;
-		
-		if($dependency_name !~ /^__/ && ! exists $triggered_dependencies_build_names{$dependency_name})
-			{
-			push @triggered_dependencies, $file_tree->{$dependency_name}{__BUILD_NAME} ;
-			$triggered_dependencies_build_names{$dependency_name} = $file_tree->{$dependency_name}{__BUILD_NAME} ;
-			}
-			
-		# only for display
-		my $dependency_display_string = $dependency_name . ' (' . $triggered_dependency_data->{REASON} . ')' ;
-		
-		if
-			(
-			   $dependency_name =~ /^__/ 
-			|| 
-				(
-				   exists $triggered_dependencies_build_names{$dependency_name}
-				&& $triggered_dependencies_build_names{$dependency_name} eq $dependency_name)
-				)
-			{
-			#fine
-			}
-		else
-			{
-			push @display_triggered_dependencies_located, "$triggered_dependencies_build_names{$dependency_name}" ;
-			}
-		
-		push @display_triggered_dependencies, $dependency_display_string ;
-		}
-	}
-	
+#----------------------
+# header
+#----------------------
 my $type ='' ;
 if($file_tree->{__VIRTUAL} || $file_tree->{__FORCED} || $file_tree->{__LOCAL})
 	{
@@ -107,11 +65,6 @@ if($pbs_config->{DISPLAY_BUILDER_INFORMATION})
 		}
 	}
 	
-# header
-my $no_output = defined $PBS::Shell::silent_commands && defined $PBS::Shell::silent_commands_output ;
-$no_output = 0 if($pbs_config->{BUILD_AND_DISPLAY_NODE_INFO} || scalar(@{$pbs_config->{DISPLAY_NODE_INFO}})) ;
-$no_output = 1 if defined $pbs_config->{DISPLAY_NO_BUILD_HEADER} ;
-
 my $columns = length("Node $type'$name':") ;
 my $separator = INFO ('#' . ('-' x ($columns - 1)) . "\n")  ;
 my $node_header = $separator ;
@@ -127,196 +80,285 @@ else
 	
 $node_header .= $separator ;
 
-$node_info .= $node_header unless $no_output;
-$log_node_info .= INFO ("Node $type'$name' [$build_name]:\n") ;
+$node_info .= $node_header unless $no_output ;
+$log_node_info .= INFO ("Node $type'$name' [$build_name]:\n") if(defined $pbs_config->{CREATE_LOG});
 
+#----------------------
 #insertion origin
-$current_node_info = INFO "\tInserted at $file_tree->{__INSERTED_AT}{INSERTION_FILE} " ;
-$current_node_info .= INFO "[$file_tree->{__INSERTED_AT}{INSERTION_PACKAGE}]:" if defined $file_tree->{__INSERTED_AT}{INSERTION_PACKAGE} ;
-$current_node_info .= INFO "$file_tree->{__INSERTED_AT}{INSERTION_RULE}.\n" ;
-
-$log_node_info .= $current_node_info ;
-
-if(defined $pbs_config->{DISPLAY_NODE_ORIGIN})
+#----------------------
+if(defined $pbs_config->{CREATE_LOG} || defined $pbs_config->{DISPLAY_NODE_ORIGIN})
 	{
-	$node_info .= $current_node_info ;
-	}
-	
-# dependencies
-$current_node_info = INFO ("\tdependencies:\n") ;
-do {$current_node_info .= INFO ("\t\t$_\n") ;} for @dependencies;
+	$current_node_info = INFO "\tInserted at $file_tree->{__INSERTED_AT}{INSERTION_FILE} " ;
+	$current_node_info .= INFO "[$file_tree->{__INSERTED_AT}{INSERTION_PACKAGE}]:" if defined $file_tree->{__INSERTED_AT}{INSERTION_PACKAGE} ;
+	$current_node_info .= INFO "$file_tree->{__INSERTED_AT}{INSERTION_RULE}.\n" ;
 
-# located dependencies
-if($pbs_config->{DISPLAY_NODE_INFO_LOCATED})
-	{
-	$current_node_info .= INFO ("\tidem but located:\n") ;
-	do {$current_node_info .= INFO ("\t\t$_\n") ;} for @located_dependencies;
-	}
-	
-$log_node_info .= $current_node_info ;
+	$log_node_info .= $current_node_info  if(defined $pbs_config->{CREATE_LOG});
 
-if($pbs_config->{DISPLAY_NODE_DEPENDENCIES})
-	{
-	$node_info .= $current_node_info ;
-	}
-	
-#build cause
-$current_node_info = INFO ("\trebuild because of:\n") ;
-do {$current_node_info .= INFO ("\t\t$_\n") ;} for @display_triggered_dependencies ;
-
-#build cause located
-if($pbs_config->{DISPLAY_NODE_INFO_LOCATED})
-	{
-	$current_node_info .= INFO ("\tidem but located:\n") ;
-	do {$current_node_info .= INFO ("\t\t$_\n") ;} for @display_triggered_dependencies_located ;
-	}
-	
-$log_node_info .= $current_node_info ;
-
-if($pbs_config->{DISPLAY_NODE_BUILD_CAUSE} && @display_triggered_dependencies)
-	{
-	$node_info .= $current_node_info ;
-	}
-
-# matching rules
-my @rules_with_builders ;
-my $builder_override ;
-	
-for my $rule (@{$file_tree->{__MATCHING_RULES}})
-	{
-	my $rule_number = $rule->{RULE}{INDEX} ;
-	my $dependencies_and_build_rules = $rule->{RULE}{DEFINITIONS} ;
-	
-	my $builder       = $dependencies_and_build_rules->[$rule_number]{BUILDER} ;
-	$builder_override = $rule->{RULE}{BUILDER_OVERRIDE} ;
-	
-	#~ my $rule_dependencies = join ' ', map {$_->{NAME}} @{$rule->{DEPENDENCIES}} ;
-	
-	#~ my $creator ;
-	#~ for my $rule_type (@{$rule->{DEFINITION}{TYPE}})
-		#~ {
-		#~ $creator++ if(CREATOR eq $rule_type) ;
-		#~ }
-		
-	my $builder_override_tag ;
-	if(defined $builder_override)
+	if(defined $pbs_config->{DISPLAY_NODE_ORIGIN})
 		{
-		if(defined $builder_override->{BUILDER})
+		$node_info .= $current_node_info ;
+		}
+	}
+	
+#----------------------
+# dependencies
+#----------------------
+my (@dependencies, @located_dependencies) ;
+my (@triggered_dependencies, @display_triggered_dependencies, %triggered_dependencies_build_names) ;
+my @display_triggered_dependencies_located ;
+
+if(defined $pbs_config->{CREATE_LOG} || $pbs_config->{DISPLAY_NODE_DEPENDENCIES} || $pbs_config->{DISPLAY_NODE_BUILD_CAUSE})
+	{
+	for (keys %$file_tree)
+		{
+		next if($_ =~ /^__/) ;
+		
+		push @dependencies, $file_tree->{$_}{__NAME} ;
+		
+		if(exists $file_tree->{$_}{__BUILD_NAME})
 			{
-			$builder_override_tag = '[BO]' ;
-			
-			my $rule_info =
-				{
-				  INDEX => $rule_number
-				, DEFINITION => $builder_override
-				} ;
+			push @located_dependencies, $file_tree->{$_}{__BUILD_NAME} ;
+			}
+		}
+		
+	if(exists $file_tree->{__TRIGGERED})
+		{
+		for my $triggered_dependency_data (@{$file_tree->{__TRIGGERED}})
+			{
+			next if(ref $triggered_dependency_data eq 'PBS_FORCE_TRIGGER') ;
 				
-			$rule_info->{OVERRIDES_OWN_BUILDER}++ if($builder);
+			my $dependency_name = $triggered_dependency_data->{NAME} ;
 			
-			push @rules_with_builders, $rule_info ;
+			if($dependency_name !~ /^__/ && ! exists $triggered_dependencies_build_names{$dependency_name})
+				{
+				push @triggered_dependencies, $file_tree->{$dependency_name}{__BUILD_NAME} ;
+				
+				if('' eq ref $triggered_dependency_data)
+					{
+					$triggered_dependencies_build_names{$dependency_name} = $file_tree->{$dependency_name}{__BUILD_NAME} ;
+					}
+				else
+					{
+					$triggered_dependencies_build_names{$dependency_name} = 'no build name' ;
+					}
+				}
+				
+			# only for display
+			my $dependency_display_string = $dependency_name . ' (' . $triggered_dependency_data->{REASON} . ')' ;
+			
+			if
+				(
+				   $dependency_name =~ /^__/ 
+				|| 
+					(
+					   exists $triggered_dependencies_build_names{$dependency_name}
+					&& $triggered_dependencies_build_names{$dependency_name} eq $dependency_name)
+					)
+				{
+				#fine
+				}
+			else
+				{
+				push @display_triggered_dependencies_located, "$triggered_dependencies_build_names{$dependency_name}" ;
+				}
+			
+			push @display_triggered_dependencies, $dependency_display_string ;
+			}
+		}
+	
+	$current_node_info = INFO ("\tdependencies:\n") ;
+	do {$current_node_info .= INFO ("\t\t$_\n") ;} for @dependencies;
+	
+	#----------------------
+	# located dependencies
+	#----------------------
+	if($pbs_config->{DISPLAY_NODE_INFO_LOCATED})
+		{
+		$current_node_info .= INFO ("\tidem but located:\n") ;
+		do {$current_node_info .= INFO ("\t\t$_\n") ;} for @located_dependencies;
+		}
+		
+	$log_node_info .= $current_node_info if(defined $pbs_config->{CREATE_LOG});
+	$node_info     .= $current_node_info if($pbs_config->{DISPLAY_NODE_DEPENDENCIES}) ;
+	}
+	
+#----------------------
+#build cause
+#----------------------
+if(defined $pbs_config->{CREATE_LOG} || $pbs_config->{DISPLAY_NODE_BUILD_CAUSE})
+	{
+	$current_node_info = INFO ("\trebuild because of:\n") ;
+	do {$current_node_info .= INFO ("\t\t$_\n") ;} for @display_triggered_dependencies ;
+	
+	#----------------------
+	#build cause located
+	#----------------------
+	if($pbs_config->{DISPLAY_NODE_INFO_LOCATED})
+		{
+		$current_node_info .= INFO ("\tidem but located:\n") ;
+		do {$current_node_info .= INFO ("\t\t$_\n") ;} for @display_triggered_dependencies_located ;
+		}
+		
+	$log_node_info .= $current_node_info if defined $pbs_config->{CREATE_LOG} ;
+	
+	if($pbs_config->{DISPLAY_NODE_BUILD_CAUSE} && @display_triggered_dependencies)
+		{
+		$node_info .= $current_node_info ;
+		}
+	}
+	
+#----------------------
+# matching rules
+#----------------------
+my @rules_with_builders ;
+my $builder = 0 ;
+
+if(defined $pbs_config->{CREATE_LOG} || $pbs_config->{DISPLAY_NODE_BUILD_RULES} || $pbs_config->{DISPLAY_NODE_BUILDER})
+	{
+	my $builder_override ;
+		
+	for my $rule (@{$file_tree->{__MATCHING_RULES}})
+		{
+		my $rule_number = $rule->{RULE}{INDEX} ;
+		my $dependencies_and_build_rules = $rule->{RULE}{DEFINITIONS} ;
+		
+		$builder          = $dependencies_and_build_rules->[$rule_number]{BUILDER} ;
+		$builder_override = $rule->{RULE}{BUILDER_OVERRIDE} ;
+		
+		#~ my $rule_dependencies = join ' ', map {$_->{NAME}} @{$rule->{DEPENDENCIES}} ;
+		
+		#~ my $creator ;
+		#~ for my $rule_type (@{$rule->{DEFINITION}{TYPE}})
+			#~ {
+			#~ $creator++ if(CREATOR eq $rule_type) ;
+			#~ }
+			
+		my $builder_override_tag ;
+		if(defined $builder_override)
+			{
+			if(defined $builder_override->{BUILDER})
+				{
+				$builder_override_tag = '[BO]' ;
+				
+				my $rule_info =
+					{
+					  INDEX => $rule_number
+					, DEFINITION => $builder_override
+					} ;
+					
+				$rule_info->{OVERRIDES_OWN_BUILDER}++ if($builder);
+				
+				push @rules_with_builders, $rule_info ;
+				}
+			else
+				{
+				$builder_override_tag = '[B = undef! in Override]' ;
+				}
 			}
 		else
 			{
-			$builder_override_tag = '[B = undef! in Override]' ;
+			if(defined $builder)
+				{
+				push @rules_with_builders, {INDEX => $rule_number, DEFINITION => $dependencies_and_build_rules->[$rule_number] } ;
+				}
 			}
-		}
-	else
-		{
-		if(defined $builder)
+			
+		my $rule_dependencies ;
+		if(@{$rule->{DEPENDENCIES}})
 			{
-			push @rules_with_builders, {INDEX => $rule_number, DEFINITION => $dependencies_and_build_rules->[$rule_number] } ;
+			$rule_dependencies = join ' ', map {$_->{NAME}} @{$rule->{DEPENDENCIES}} ;
 			}
-		}
+		else
+			{
+			$rule_dependencies = 'no derived dependency from this rule' ;
+			}
+			
+		my $rule_tag = '' ;
+		$rule_tag .= '[B]'  if defined $builder ;
+		$rule_tag .= '[BO]' if defined $builder_override ;
+		$rule_tag .= '[S]'  if defined $file_tree->{__INSERTED_AT}{NODE_SUBS} ;
+		#~ $rule_tag .= '[CREATOR]' if $creator;
 		
-	my $rule_dependencies ;
-	if(@{$rule->{DEPENDENCIES}})
+		my $rule_info = $dependencies_and_build_rules->[$rule_number]{NAME}
+							. $dependencies_and_build_rules->[$rule_number]{ORIGIN} ;
+							
+		$current_node_info = INFO ("\tmatching rule: #$rule_number$rule_tag '$rule_info'\n") ;
+		$current_node_info .= INFO ("\t\t=> $rule_dependencies\n") ;
+		
+		$log_node_info .= $current_node_info if(defined $pbs_config->{CREATE_LOG}) ;
+		$node_info     .= $current_node_info if($pbs_config->{DISPLAY_NODE_BUILD_RULES}) ;
+		}
+	}
+	
+#----------------------
+# node config
+#----------------------
+if(defined $pbs_config->{CREATE_LOG} || $pbs_config->{DISPLAY_NODE_CONFIG})
+	{
+	if(defined $file_tree->{__CONFIG})
 		{
-		$rule_dependencies = join ' ', map {$_->{NAME}} @{$rule->{DEPENDENCIES}} ;
+		$current_node_info = INFO 
+									(
+									DumpTree
+										(
+										$file_tree->{__CONFIG}
+										, "Build config"
+										, INDENTATION => '        '
+										)
+									) ;
+									
 		}
 	else
 		{
-		$rule_dependencies = 'no derived dependency from this rule' ;
+		$current_node_info = '' ;
 		}
 		
-	my $rule_tag = '' ;
-	$rule_tag .= '[B]'  if defined $builder ;
-	$rule_tag .= '[BO]' if defined $builder_override ;
-	$rule_tag .= '[S]'  if defined $file_tree->{__INSERTED_AT}{NODE_SUBS} ;
-	#~ $rule_tag .= '[CREATOR]' if $creator;
-	
-	my $rule_info = $dependencies_and_build_rules->[$rule_number]{NAME}
-						. $dependencies_and_build_rules->[$rule_number]{ORIGIN} ;
-						
-	$current_node_info = INFO ("\tmatching rule: #$rule_number$rule_tag '$rule_info'\n") ;
-	$current_node_info .= INFO ("\t\t=> $rule_dependencies\n") ;
-	
-	$log_node_info .= $current_node_info ;
-	
-	my $current_node_info2 ;
-	if($pbs_config->{DISPLAY_NODE_BUILD_RULES})
-		{
-		$node_info .= $current_node_info ;
-		}
-	}
-
-# node config
-if(defined $file_tree->{__CONFIG})
-	{
-	$current_node_info = INFO 
-								(
-								DumpTree
-									(
-									$file_tree->{__CONFIG}
-									, "Build config"
-									, INDENTATION => '        '
-									)
-								) ;
-								
-	$log_node_info .=  $current_node_info ;
-	}
-else
-	{
-	$current_node_info = '' ;
+	$log_node_info .= $current_node_info if(defined $pbs_config->{CREATE_LOG}) ;
+	$node_info     .= $current_node_info if($pbs_config->{DISPLAY_NODE_CONFIG}) ;
 	}
 	
-if($pbs_config->{DISPLAY_NODE_CONFIG})
-	{
-	$node_info  .= $current_node_info ;
-	}
-
+#----------------------
 #builder
+#----------------------
 my $more_than_one_builder = 0 ;
 
 # choose last builder if multiple Builders
+if(defined $pbs_config->{CREATE_LOG} || $pbs_config->{DISPLAY_NODE_BUILDER})
+	{
+	if(@rules_with_builders)
+		{
+		my $rule_used_to_build = $rules_with_builders[-1] ;
+		   $builder            = $rule_used_to_build->{DEFINITION}{BUILDER} ;
+		
+		my $rule_tag = '' ;
+		unless(exists $rule_used_to_build->{DEFINITION}{SHELL_COMMANDS_GENERATOR})
+			{
+			$rule_tag = "[P]" ;
+			}
+			
+		my $rule_info = $rule_used_to_build->{INDEX} 
+				. $rule_tag
+				. " '"
+				. $rule_used_to_build->{DEFINITION}{NAME}
+				. $rule_used_to_build->{DEFINITION}{ORIGIN}
+				. "'" ;
+							
+		$current_node_info = INFO ("\tUsing builder from rule: #$rule_info\n") ;
+		
+		$log_node_info .= $current_node_info if(defined $pbs_config->{CREATE_LOG}) ;
+		$node_info     .= $current_node_info if($pbs_config->{DISPLAY_NODE_BUILDER}) ;
+		}
+	}
+		
+
+#-----------------------------------------
+# display override information
+#-----------------------------------------
 if(@rules_with_builders)
 	{
-	my $rule_used_to_build = $rules_with_builders[-1] ;
-	my $builder            = $rule_used_to_build->{DEFINITION}{BUILDER} ;
-	
-	my $rule_tag = '' ;
-	unless(exists $rule_used_to_build->{DEFINITION}{SHELL_COMMANDS_GENERATOR})
-		{
-		$rule_tag = "[P]" ;
-		}
-		
-	my $rule_info = $rule_used_to_build->{INDEX} 
-			. $rule_tag
-			. " '"
-			. $rule_used_to_build->{DEFINITION}{NAME}
-			. $rule_used_to_build->{DEFINITION}{ORIGIN}
-			. "'" ;
-						
-	$current_node_info = INFO ("\tUsing builder from rule: #$rule_info\n") ;
-	$log_node_info .= $current_node_info ;
-	
-	if($pbs_config->{DISPLAY_NODE_BUILDER})
-		{
-		$node_info .= $current_node_info ;
-		}
-		
 	for my $rule (@rules_with_builders)
 		{
-		# display ovverride information
+		# display override information
 		
 		my $rule_info =  $rule->{DEFINITION}{NAME}
 							. $rule->{DEFINITION}{ORIGIN} ;
@@ -349,42 +391,44 @@ if(@rules_with_builders)
 			$current_node_info .= WARNING ("\tIgnoring Builder from rule: $overriden_rule_info#$rule->{INDEX} '$rule_info'.\n") ;
 			}
 			
-		$log_node_info    .= $current_node_info ;
-		$node_info        .= $current_node_info ;
+		$log_node_info .= $current_node_info ;
+		$node_info     .= $current_node_info ;
 		}
 	}
 
+#-------------------------------------------------
+#display shell and commands if any
+#-------------------------------------------------
 if(@{$pbs_config->{DISPLAY_BUILD_INFO}})
 	{
 	#display shell and commands if any
 	}
 	
-if(defined $file_tree->{__POST_BUILD_COMMANDS})
+#----------------------
+# post build
+#----------------------
+if(defined $pbs_config->{CREATE_LOG} || $pbs_config->{DISPLAY_NODE_BUILD_POST_BUILD_COMMANDS})
 	{
-	$current_node_info = INFO ("\tPost Build Commands:\n") ;
-	
-	for my $post_build_command (@{$file_tree->{__POST_BUILD_COMMANDS}})
+	if(defined $file_tree->{__POST_BUILD_COMMANDS})
 		{
-		my $rule_info = $post_build_command->{NAME}
-							. $post_build_command->{ORIGIN} ;
-		$current_node_info .= INFO ("\t\t$rule_info\n") ;
-		}
+		$current_node_info = INFO ("\tPost Build Commands:\n") ;
 		
-	$log_node_info .= $current_node_info ;
-	
-	if($pbs_config->{DISPLAY_NODE_BUILD_POST_BUILD_COMMANDS})
-		{
-		$node_info .= $current_node_info ;
+		for my $post_build_command (@{$file_tree->{__POST_BUILD_COMMANDS}})
+			{
+			my $rule_info = $post_build_command->{NAME}
+								. $post_build_command->{ORIGIN} ;
+			$current_node_info .= INFO ("\t\t$rule_info\n") ;
+			}
+			
+		$log_node_info .= $current_node_info if(defined $pbs_config->{CREATE_LOG}) ;
+		$node_info     .= $current_node_info if($pbs_config->{DISPLAY_NODE_BUILD_POST_BUILD_COMMANDS}) ;
 		}
 	}
 	
-if(defined $pbs_config->{CREATE_LOG})
-	{
-	my $lh = $pbs_config->{CREATE_LOG} ;
-	print $lh $log_node_info ;	
-	}
+my $log_handle = $pbs_config->{CREATE_LOG} ;
+print $log_node_info if(defined $log_handle) ;
 
-print STDERR $node_info ;
+print STDOUT $node_info ;
 }
 
 #----------------------------------------------------------------------

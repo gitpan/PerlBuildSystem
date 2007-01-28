@@ -54,6 +54,19 @@ our $global_reset_escape_code    = Term::ANSIColor::color('reset') ;
 
 #-------------------------------------------------------------------------------
 
+sub NoColors
+{
+$global_error_escape_code    = '' ;
+$global_warning_escape_code  = '' ;
+$global_warning2_escape_code = '' ;
+$global_info_escape_code     = '' ;
+$global_info2_escape_code    = '' ;
+$global_user_escape_code     = '' ;
+$global_shell_escape_code    = '' ;
+$global_debug_escape_code    = '' ;
+$global_reset_escape_code    = '' ;
+}
+
 sub SetOutputColor
 {
 my $switch = shift ;
@@ -187,11 +200,11 @@ sub PrintWarning
 #~ my ($package, undef, $line) = caller() ;
 #~ print "Warning from $package:$line\n" ;
 
-print STDERR WARNING(@_) ;
+print WARNING(@_) ;
 
 if(defined $PBS::Output::query_on_warning)
 	{
-	print STDERR "Continue [return|y|yes]? " ;
+	print "Continue [return|y|yes]? " ;
 	my $answer = <STDIN> ;
 	chomp $answer ;
 	
@@ -201,11 +214,11 @@ if(defined $PBS::Output::query_on_warning)
 
 sub PrintWarning2
 {
-print STDERR WARNING2(@_) ;
+print WARNING2(@_) ;
 
 if(defined $PBS::Output::query_on_warning)
 	{
-	print STDERR "Continue [return|y|yes]? " ;
+	print "Continue [return|y|yes]? " ;
 	my $answer = <STDIN> ;
 	chomp $answer ;
 	

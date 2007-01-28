@@ -24,7 +24,7 @@ sub setup : Test(setup) {
 
 # Write files
     $t->write_pbsfile(<<"_EOF_");
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
     PbsUse('Rules/C');
 
     AddRule 'test-c', [ 'test-c$t::PBS::_exe' => 'main.o' ] =>
@@ -58,6 +58,7 @@ sub normal_build : Test(18) {
 # Modify the c-file and rebuild
     $t->write('main.c', $file_main2_c);
     $t->build_test;
+    #~ $t->generate_test_snapshot_and_exit() ;
     $t->run_target_test(stdout => "main2.c\n");
 
     $t->test_up_to_date;

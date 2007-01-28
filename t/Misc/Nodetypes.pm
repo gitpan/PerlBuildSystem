@@ -152,7 +152,6 @@ _EOF_
 }
 
 unless (caller()) {
-    #t::PBS::set_global_warp_mode('1.5');
     $ENV{"TEST_VERBOSE"} = 1;
     Test::Class->runtests;
 }

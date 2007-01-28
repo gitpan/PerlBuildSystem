@@ -7,6 +7,8 @@ use 5.006 ;
 use strict ;
 use warnings ;
 use Data::Dumper ;
+use File::Spec::Functions qw(:ALL) ;
+
 use Carp ;
  
 require Exporter ;
@@ -123,7 +125,7 @@ if('ARRAY' eq ref $switch)
 	
 	for my $post_build_regex_definition (@$switch)
 		{
-		unless(File::Spec->file_name_is_absolute($post_build_regex_definition) || $post_build_regex_definition=~ /^\.\//)
+		unless(file_name_is_absolute($post_build_regex_definition) || $post_build_regex_definition=~ /^\.\//)
 			{
 			$post_build_regex_definition= "./$post_build_regex_definition" ;
 			}

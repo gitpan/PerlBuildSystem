@@ -3,10 +3,17 @@ PBS/PBS version
 
 B<PBS>/I<pbs.pl> is a build utility/module in the same spirit as  'make'.
 
+PBS is among the new generation build systems:
+
+rake: L<http://rake.rubyforge.org/>
+scons
+...
+
+
 This module is pure perl. It is tested on linux and windows.
 
-Special thanks go to Todd Merritt for Moving his module to Batch::PBS to
-allow us to use 'PBS' as name.
+Special thanks go to Todd Merritt, author of Batch::PBS, to
+allow us to use 'PBS' as namespace.
 
 INSTALLATION
 
@@ -25,7 +32,7 @@ If you have used 'make', I<pbs> should be easy to understand and use.
 
 This is a beta (a developper) release of I<pbs> but this software has been
 used for three years and I use it right now in a very serious project which
-has 300 pbsfiles, 5000 nodes and 1.5 millions C code lines.
+has 800 pbsfiles, 11000 nodes and  3 millions C code lines.
 
 I<pbs> will continue to grow and I hope to get some help from the Open source 
 community. I<pbs> has a limiting licence please read I<licence.txt>.
@@ -35,7 +42,7 @@ issue. You can have a look at the slide presentation I made at the Nordic
 Perl Workshop in 2004. Some things have changed since then but it will give you
 a nice overview.
 
-I<pbs> has a test suite consisting of 700 tests. We still work to make the 
+I<pbs> has a test suite consisting of over 700 tests. We still work to make the 
 coverage better.
 
 Look at the test directory for some simple examples.
@@ -77,7 +84,6 @@ Getopt::Long        => '2.32',
 Cwd                 => '2.06',
 Data::Dumper        => '2.12',
 File::Basename      => '2.71',
-Tie::IxHash         => '1.21',
 Tie::Hash::Indexed  => '0.03',
 Devel::Depend::Cpp  => '0.05',
 Devel::Depend::Cl   => '0.01',
@@ -157,5 +163,5 @@ COPYRIGHT AND LICENCE
 
 See I<licence.txt>
 
-Copyright (C) 2003-2005 Khemir Nadim ibn Hamouda. <nadim@khemir.net>
+Copyright (C) 2003-2006 Khemir Nadim ibn Hamouda. <nadim@khemir.net>
 

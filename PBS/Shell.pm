@@ -35,8 +35,15 @@ return(bless {@_}, __PACKAGE__) ;
 sub GetInfo
 {
 my $self = shift ;
-my $user_info = $self->{USER_INFO} || '' ;
-return(__PACKAGE__ . " $user_info") ;
+
+if(exists $self->{USER_INFO} && $self->{USER_INFO} ne '')
+	{
+	return(__PACKAGE__ . " " . $self->{USER_INFO}) ;
+	}
+else
+	{
+	return(__PACKAGE__) ;
+	}
 }
 
 #-----------------------------------------------------------------------------
@@ -157,7 +164,12 @@ PBS::Shell  -
 
   use PBS::Shell ;
   
-  RunShellCommands("ls", "echo $PBS_LIB_PATH", "generate an exception") ;
+  RunShellCommands
+	(
+	"ls",
+	"echo hi",
+	"generate an exception"
+	) ;
 
 =head1 DESCRIPTION
 

@@ -43,6 +43,9 @@ for depth first. Since nodes have diffrent build time, the parallelisation algor
 terminal nodes) should be dynamic to be optimal and in that case, should take into account the load on the cpu building
 the node as build time is not only a factor of the CPU but also network and other I/O.
 
+keeping previous build time to build the longest nodes to build first can also make the end of the build more effective as it
+keeps the builder pool full.
+
 =cut
 
 my $t0 = [gettimeofday];
@@ -103,6 +106,7 @@ while(%$build_queue)
 			$progress_bar->update($number_of_already_build_node) if $progress_bar ;
 			$builder_using_perl_time += $build_time if PBS::Build::NodeBuilderUsesPerlSubs($build_queue->{$built_node_name}) ;
 			
+			PBS::Depend::SynchronizeAfterBuild($build_queue->{$built_node_name}{NODE}) ;
 			EnqueueNodeParents($pbs_config, $build_queue->{$built_node_name}{NODE}, $build_queue) ;
 			}
 		else
@@ -206,7 +210,7 @@ $number_of_builders ||= 1 ; #safeguard for user errors
 my $builder_plural = '' ; $builder_plural = 'es' if($number_of_builders > 1) ;
 my $build_process = "build process$builder_plural" ;
 
-PrintInfo("Parallel build: using $number_of_builders $build_process out of maximum $pbs_config->{JOBS}.\n") ;
+PrintInfo("Parallel build: using $number_of_builders $build_process out of maximum $pbs_config->{JOBS} for $number_of_terminal_nodes terminal nodes.\n") ;
 
 return($number_of_builders ) ;
 }

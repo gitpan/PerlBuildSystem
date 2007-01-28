@@ -9,7 +9,10 @@ use warnings ;
 use Data::Dumper ;
 use Data::TreeDumper ;
 use Carp ;
- 
+use Data::Compare;
+use Time::HiRes qw(gettimeofday tv_interval) ;
+use File::Spec::Functions qw(:ALL) ;
+
 require Exporter ;
 use AutoLoader qw(AUTOLOAD) ;
 
@@ -32,7 +35,7 @@ our @EXPORT = qw(
 						CheckFilesMD5
 					) ;
 					
-our $VERSION = '0.04' ;
+our $VERSION = '0.05' ;
 
 use PBS::PBSConfig ;
 use PBS::Output ;
@@ -54,28 +57,171 @@ my %force_digest ;
 # cached MD5 functions
 #-------------------------------------------------------------------------------
 
-#~ my %md5_cache ;
+my %md5_cache ;
+my $cache_hits = 0 ;
+my $md5_request = 0 ;
+my $md5_time = 0 ;
+my $non_cached_md5_request = 0 ;
 
-#~ sub FlushMd5Cache
-#~ {
-#~ %md5_cache = () ;
-#~ }
+sub Get_MD5_Statistics
+{
+my $total_md5_requests = $non_cached_md5_request + $md5_request ;
+my $md5_cache_hit_ratio = 'N/A' ;
+my $cache_misses = 'N/A' ;
+
+if($total_md5_requests)
+	{
+	$cache_misses = $total_md5_requests - $cache_hits  ;
+	$md5_cache_hit_ratio = int(($cache_hits * 100) / $total_md5_requests) ;
+	}
+	
+return
+	({
+	  TOTAL_MD5_REQUESTS  => $total_md5_requests
+	, CACHED_REQUESTS     => $md5_request
+	, NON_CACHED_REQUESTS => $non_cached_md5_request
+	, CACHE_MISSES        => $cache_misses
+	, CACHE_HITS          => $cache_hits
+	, MD5_CACHE_HIT_RATIO => $md5_cache_hit_ratio
+	, MD5_TIME            => $md5_time
+	});
+}
+
+sub FlushMd5Cache
+{
+my $file = shift ;
+
+if(defined $file)
+	{
+	delete $md5_cache{$file} ;
+	}
+else
+	{
+	%md5_cache = () ;
+	}
+}
+
+#-------------------------------------------------------------------------------
 
 sub GetCachedFileMD5
 {
-my $file = shift ;
+my $file = shift or carp ERROR "GetCachedFileMD5: Called without argument!\n" ;
+
+$md5_request++ ;
+my $t0_md5 = [gettimeofday] ;
+
 my $md5 ;
-
-#~ return($md5_cache{$file}) if exists $md5_cache{$file} ;
-
-unless(defined ($md5 = GetFileMD5($file)))
+if(exists $md5_cache{$file})
 	{
-	die croak ERROR("Can't open '$file' to compute MD5 digest: $!") ;
+	$md5 = $md5_cache{$file}  ;
+	$cache_hits++ ;
+	}
+else
+	{
+	if(defined ($md5 = NonCached_GetFileMD5($file)))
+		{
+		$md5_cache{$file} = $md5 ;
+		}
+	else
+		{
+		die croak ERROR("Can't open '$file' to compute MD5 digest: $!") ;
+		}
 	}
 	
-#~ $md5_cache{$file} = $md5 ;
+$md5_time += tv_interval($t0_md5, [gettimeofday]) ;
 
 return($md5) ;
+}
+
+#-------------------------------------------------------------------------------
+
+sub GetFileMD5
+{
+#  this one caching too.
+my $file = shift or carp ERROR "GetFileMD5: Called without argument!\n" ;
+my $md5 ;
+
+$non_cached_md5_request++ ;
+
+if(exists $md5_cache{$file})
+	{
+	$md5 = $md5_cache{$file}  ;
+	$cache_hits++ ;
+	#~ PrintInfo "cached $file\n" ;
+	}
+else
+	{
+	#~ PrintInfo "NON cached $file\n" ;
+	if(defined ($md5 = NonCached_GetFileMD5($file)))
+		{
+		$md5_cache{$file} = $md5 ;
+		}
+	}
+
+return($md5) ;
+}
+
+#-------------------------------------------------------------------------------
+# non cached MD5 functions
+#-------------------------------------------------------------------------------
+
+sub XXXGetFileMD5
+{
+my $file_name = shift or carp ERROR "GetFileMD5: Called without argument!\n" ;
+
+return(NonCached_GetFileMD5($file_name)) ;
+}
+
+#-------------------------------------------------------------------------------
+
+sub CheckFilesMD5
+{
+my $files_md5 = shift ;
+my $display_error = shift ;
+
+while (my($file, $md5) = each(%$files_md5))
+	{
+	my $file_md5 = NonCached_GetFileMD5($file) ; 
+	
+	if(defined $file_md5)
+		{
+		if($md5 ne $file_md5)
+			{
+			PrintError("Different md5 for file '$file'.\n") if $display_error;
+			return(0) ;
+			}
+		}
+	else
+		{
+		PrintError("Can't open '$file' to compute MD5 digest: $!\n") if $display_error;
+		return(0) ;
+		}
+	}
+	
+return(1) ; # all files ok.
+}
+
+#-------------------------------------------------------------------------------
+
+sub NonCached_GetFileMD5
+{
+my $file_name = shift or carp ERROR "GetFileMD5: Called without argument!\n" ;
+
+use IO::File ;
+my $fh = new IO::File ;
+
+if($fh->open($file_name))
+	{
+	$fh->binmode();
+	my $md5sum = Digest::MD5->new->addfile($fh)->hexdigest ;
+	undef $fh ;
+	
+	return($md5sum) ;
+	}
+else
+	{
+	return ;
+	}
 }
 
 #-------------------------------------------------------------------------------
@@ -130,13 +276,10 @@ for (@files)
 		$file_name = "__PBSFILE" ;
 		s/^PBSFILE:// ;
 		
-		$package_dependencies{$package}{$file_name} = GetCachedFileMD5($_) ;
+		my $file_md5 = GetCachedFileMD5($_) ;
 		
 		# warp need this data to find out if it's been made invalid by aPbs filechange
-		$package_dependencies{__PBS_WARP_DATA}{$_} = $package_dependencies{$package}{$file_name} ;
-		
-		# warp 1.6 specific
-		$package_dependencies{'__WARP1_6'}{$package}{$_} = $package_dependencies{$package}{$file_name} ;
+		$package_dependencies{__PBS_WARP_DATA}{$_} = $file_md5 ;
 		}
 	else
 		{
@@ -151,32 +294,19 @@ for (@files)
 
 sub AddPbsLibDependencies
 {
-my @files = @_ ;
+my ($file_name,	$lib_name) = @_ ;
 
 my $package = caller() ;
 
-for (@files)
-	{
-# TODO: Check this Windows specific change
-	if(/^(.+):([^:]+)/)
-		{
-		my $file_name = $1 ;
-		my $lib_name = "__PBS_LIB_PATH/$2" ;
-		
-		$package_dependencies{$package}{$lib_name} = GetCachedFileMD5($file_name) ;
-		
-		# warp need this data to find out if it's been made invalid by aPbsfile change
-		$package_dependencies{__PBS_WARP_DATA}{$file_name} = $package_dependencies{$package}{$lib_name} ;
-		
-		#warp 1.6
-		$package_dependencies{'__WARP1_6'}{$package}{$file_name} = $package_dependencies{$package}{$lib_name} ;
-		}
-	else
-		{
-		carp ERROR("Invalid argument format for AddPbsLibDependencies argument: '$_'\n") ;
-		die ;
-		}
-	}
+$lib_name = "__PBS_LIB_PATH/$lib_name" ;
+
+$package_dependencies{$package}{$lib_name} = GetCachedFileMD5($file_name) ;
+
+# warp need this data to find out if it's been made invalid by aPbsfile change
+$package_dependencies{__PBS_WARP_DATA}{$file_name} = $package_dependencies{$package}{$lib_name} ;
+
+#warp 1.6
+$package_dependencies{'__WARP1_6'}{$package}{$file_name} = $package_dependencies{$package}{$lib_name} ;
 }
 
 #-------------------------------------------------------------------------------
@@ -291,12 +421,7 @@ for (@{$node_digest_rules{$node_package}})
 	
 if(exists $node_config_variable_dependencies{$node_package})
 	{
-	my $pbs_config = PBS::PBSConfig::GetPbsConfig($node_package) ;
-	my %config = PBS::Config::ExtractConfig
-			(
-			  PBS::Config::GetPackageConfig($node_package)
-			, $pbs_config->{CONFIG_NAMESPACES}
-			) ;
+	my %config = %{$node->{__CONFIG}} ;
 	
 	for (@{$node_config_variable_dependencies{$node_package}})
 		{
@@ -311,7 +436,7 @@ if(exists $node_config_variable_dependencies{$node_package})
 	}
 	
 # add node children to digest
-my @node_children = map {$node->{$_}{__NAME} ;} grep { $_ !~ /^__/ ;} (keys %$node) ;
+my @node_children = map {$node->{$_}{__NAME} ;} grep { ('HASH' eq ref($node->{$_})) && ($_ !~ /^__/) ;} (keys %$node) ;
 
 for(@node_children)
 	{
@@ -592,7 +717,7 @@ sub CompareExpectedDigestWithDigestFile
 my $node = shift ;
 my $comparator = shift ;
 
-my $digest_file_name = $node->{__BUILD_NAME} . '.pbs_md5' ;
+my $digest_file_name = GetDigestFileName($node) ;
 
 my $pbs_config = $node->{__PBS_CONFIG} ;
 my $package = $node->{__LOAD_PACKAGE} ;
@@ -603,6 +728,7 @@ if(IsDigestToBeGenerated($package, $node))
 	{
 	if(-e $digest_file_name)
 		{
+		# check with inotify/archive flag first
 		my $current_md5 ;
 		
 		unless(defined ($current_md5 = GetFileMD5($node->{__BUILD_NAME})))
@@ -612,9 +738,11 @@ if(IsDigestToBeGenerated($package, $node))
 			
 		my $node_digest = 
 			{
-			  %{GetPackageDigest($package)}
+			  #~ %{GetPackageDigest($node->{__DEPENDING_PACKAGE})}
+			  %{GetPackageDigest($node->{__LOAD_PACKAGE})}
 			, %{GetNodeDigest($node)}
 			, $node->{__NAME} => $current_md5 
+			, __DEPENDING_PBSFILE => $node->{__DEPENDING_PBSFILE}
 			} ;
 			
 		my $digest ;
@@ -622,7 +750,7 @@ if(IsDigestToBeGenerated($package, $node))
 			{
 			warn "couldn't parse '$digest_file_name': $@" if $@;
 			}
-		
+			
 		if('HASH' eq ref $digest)
 			{
 			if
@@ -662,6 +790,39 @@ return($rebuild_because_of_digest, $result_message) ;
 
 #-------------------------------------------------------------------------------
 
+sub IsFileModified
+{
+my ($pbs_config, $file, $md5) = @_ ;
+my $file_is_modified = 0;
+
+# check with inotify/archive flag first
+if(defined (my $current_md5 = GetFileMD5($file)))
+	{
+	unless($current_md5 eq $md5)
+		{
+		if($pbs_config->{DISPLAY_WARP_TRIGGERED_NODES})	
+			{
+			PrintDebug "\nWarp: '$file' MD5 mismatch\n" ;
+			}
+			
+		$file_is_modified++ ;
+		}
+	}
+else
+	{
+	if($pbs_config->{DISPLAY_WARP_TRIGGERED_NODES})	
+		{
+		PrintDebug "\nWarp: '$file' No such file $@\n" ;
+		}
+		
+	$file_is_modified++ ;
+	}
+
+return($file_is_modified) ;
+}
+
+#-------------------------------------------------------------------------------
+
 sub CompareDigests
 {
 my ($name, $expected_digest, $digest, $display_digest, $display_different_digest_only) = @_ ;
@@ -685,7 +846,7 @@ for my $key( keys %$expected_digest)
 			|| (! defined $digest->{$key} && defined $expected_digest->{$key})
 			|| (
 				   defined $digest->{$key} && defined $expected_digest->{$key} 
-				&& ($digest->{$key} ne $expected_digest->{$key})
+				&& (!Compare($digest->{$key}, $expected_digest->{$key}))
 			   )
 			)
 			{
@@ -713,7 +874,7 @@ if($display_digest)
 	{
 	if($digest_is_different)
 		{
-		PrintInfo("Digests for file $name are diffrent [$digest_is_different]:\n") ;
+		PrintInfo("Digests for file $name are different [$digest_is_different]:\n") ;
 		
 		#~PrintInfo(Data::Dumper->Dump($digest, "digest:\n")) ;
 		#~PrintInfo(Data::Dumper->Dump($expected_digest, "expected_digest:\n")) ;
@@ -729,8 +890,8 @@ if($display_digest)
 			{
 			my $digest_value = $digest->{$key} || 'undef' ;
 			my $expected_digest_value = $expected_digest->{$key} || 'undef' ;
-			PrintError("\tkey '$key' is different.\n") ;
-			#~ PrintError("\tkey '$key' is different: $digest_value <=> $expected_digest_value\n") ;
+			#PrintError("\tkey '$key' is different.\n") ;
+			PrintError("\tkey '$key' is different: $digest_value <=> $expected_digest_value\n") ;
 			}
 			
 		for my $key (@in_expected_digest_but_not_file_digest)
@@ -742,7 +903,7 @@ if($display_digest)
 		}
 	else
 		{
-		PrintInfo("Digest for file '$name' are identical.\n") unless $display_different_digest_only ;
+		PrintInfo("Digests for file '$name' are identical.\n") unless $display_different_digest_only ;
 		}
 	}
 
@@ -754,6 +915,9 @@ return($digest_is_different) ;
 sub DigestIsIncluded
 {
 my ($name, $expected_digest, $digest, $display_digest, $display_different_digest_only) = @_ ;
+
+#~ print DumpTree $expected_digest, 'expected_digest' ;
+#~ print DumpTree $digest, 'digest' ;
 
 my $digest_is_different = 0 ;
 
@@ -771,7 +935,7 @@ for my $key( keys %$expected_digest)
 			|| (! defined $digest->{$key} && defined $expected_digest->{$key})
 			|| (
 				   defined $digest->{$key} && defined $expected_digest->{$key} 
-				&& ($digest->{$key} ne $expected_digest->{$key})
+				&& !Compare($digest->{$key}, $expected_digest->{$key})
 			   )
 			)
 			{
@@ -803,8 +967,8 @@ if($display_digest)
 			{
 			my $digest_value = $digest->{$key} || 'undef' ;
 			my $expected_digest_value = $expected_digest->{$key} || 'undef' ;
-			PrintError("\tkey '$key' is different.\n") ;
-			#~ PrintError("\tkey '$key' is different: $digest_value <=> $expected_digest_value\n") ;
+			#PrintError("\tkey '$key' is different.\n") ;
+			PrintError("\tkey '$key' is different: $digest_value <=> $expected_digest_value\n") ;
 			}
 			
 		for my $key (@in_expected_digest_but_not_file_digest)
@@ -825,48 +989,58 @@ return(!$digest_is_different) ;
 
 #-------------------------------------------------------------------------------
 
+sub GetDigestFileName
+{
+my ($node) = @_ ;
+
+my $file_name = $node->{__BUILD_NAME} ;
+my $digest_file_name = $file_name . '.pbs_md5' ;
+
+# files with full path get their digest file in the same path as the 
+# file defeating the output path
+if(file_name_is_absolute($node->{__NAME}))
+	{
+	my ($volume,$directories,$file) = splitpath($file_name);
+	my $build_directory = $node->{__PBS_CONFIG}{BUILD_DIRECTORY} ;
+
+	$digest_file_name = "$build_directory/ROOT${directories}$file.pbs_md5" ;
+	}
+		
+
+return($digest_file_name) ;
+}
+
+#-------------------------------------------------------------------------------
+
 sub GenerateNodeDigest
 {
 my $node = shift ;
 
-unless($node->{__PBS_CONFIG}{NO_DIGEST})
-	{
-	my $digest_file_name = $node->{__BUILD_NAME} . '.pbs_md5' ;
-	
-	if(exists $node->{__VIRTUAL} && $node->{__VIRTUAL} == 1)
-		{
-		if(-e $digest_file_name)
-			{
-			PrintInfo("Removing digest file: '$digest_file_name'. Node is virtual.\n") ;
-			unlink($digest_file_name) ;
-			}
-			
-		return() ;
-		}
-	
-	my $package = $node->{__LOAD_PACKAGE} ;
+my $digest_file_name = GetDigestFileName($node) ;
 
-	if(IsDigestToBeGenerated($package, $node))
-		{
-		WriteDigest
-			(
-			  $digest_file_name
-			, "Pbsfile: $node->{__PBS_CONFIG}{PBSFILE}"
-			, GetDigest($node)
-			, '' # caller data to be added to digest
-			, 1 # create path
-			) ;
-		}
-	}
-else
+if(exists $node->{__VIRTUAL} && $node->{__VIRTUAL} == 1)
 	{
-	my $digest_file_name = $node->{__BUILD_NAME} . '.pbs_md5' ;
-	
 	if(-e $digest_file_name)
 		{
-		PrintInfo("Removing digest file: '$digest_file_name'\n") ;
+		PrintInfo("Removing digest file: '$digest_file_name'. Node is virtual.\n") ;
 		unlink($digest_file_name) ;
 		}
+		
+	return() ;
+	}
+
+my $package = $node->{__LOAD_PACKAGE} ;
+
+if(IsDigestToBeGenerated($package, $node))
+	{
+	WriteDigest
+		(
+		  $digest_file_name
+		, "Pbsfile: $node->{__PBS_CONFIG}{PBSFILE}"
+		, GetDigest($node)
+		, '' # caller data to be added to digest
+		, 1 # create path
+		) ;
 	}
 }
 
@@ -877,11 +1051,15 @@ sub GetDigest
 my $node = shift ;
 my $package = $node->{__LOAD_PACKAGE} ;
 
+PrintDebug "$node->{__NAME} doesn't have __DEPENDING_PBSFILE\n" unless exists $node->{__DEPENDING_PBSFILE} ;
 return
 	{
 	  %{GetPackageDigest($package)}
+	#TODO , map {$_ => GetCachedFileMD5($_)} PBS::Plugin::GetLoadedPlugins()
+	# TODO: depend on pbs install
 	, %{GetNodeDigest($node)}
 	, $node->{__NAME} => GetCachedFileMD5($node->{__BUILD_NAME})
+	, __DEPENDING_PBSFILE =>  $node->{__DEPENDING_PBSFILE}
 	} ;
 }
 
@@ -904,7 +1082,8 @@ open NODE_DIGEST, ">", $digest_file_name  or die ERROR("Can't open '$digest_file
 use POSIX qw(strftime);
 my $now_string = strftime "%a %b %e %H:%M:%S %Y", gmtime;
 
-my $HOSTNAME = $ENV{HOSTNAME} || qx"hostname" ;
+my $HOSTNAME = $ENV{HOSTNAME} || qx"hostname" || 'no_host' ;
+my $user = PBS::PBSConfig::GetUserName() ;
 
 $caller_information = '' unless defined $caller_information ;
 $caller_information =~ s/^/# /g ;
@@ -915,8 +1094,7 @@ print NODE_DIGEST <<EOH ;
 
 # File: $digest_file_name
 # Date: $now_string 
-# User: $ENV{USER} @ $HOSTNAME
-# PBS_LIB_PATH: $ENV{PBS_LIB_PATH}
+# User: $user @ $HOSTNAME
 $caller_information
 
 EOH
@@ -925,57 +1103,6 @@ print NODE_DIGEST "$caller_data\n" if defined $caller_data ;
 
 print NODE_DIGEST Data::Dumper->Dump([$digest], ['digest']) ;
 close(NODE_DIGEST) ;
-}
-
-#-------------------------------------------------------------------------------
-# non cached MD5 functions
-#-------------------------------------------------------------------------------
-
-sub GetFileMD5
-{
-my $file_name = shift or carp ERROR "GetFileMD5: Called without argument!\n" ;
-
-if(open(FILE, $file_name))
-	{
-	binmode(FILE);
-	my $md5sum = Digest::MD5->new->addfile(*FILE)->hexdigest ;
-	close(FILE) ;
-	
-	return($md5sum) ;
-	}
-else
-	{
-	return ;
-	}
-}
-
-#-------------------------------------------------------------------------------
-
-sub CheckFilesMD5
-{
-my $files_md5 = shift ;
-my $display_error = shift ;
-
-while (my($file, $md5) = each(%$files_md5))
-	{
-	my $file_md5 = GetFileMD5($file) ; 
-	
-	if(defined $file_md5)
-		{
-		if($md5 ne $file_md5)
-			{
-			PrintError("Different md5 for file '$file'.\n") if $display_error;
-			return(0) ;
-			}
-		}
-	else
-		{
-		PrintError("Can't open '$file' to compute MD5 digest: $!\n") if $display_error;
-		return(0) ;
-		}
-	}
-	
-return(1) ; # all files ok.
 }
 
 #-------------------------------------------------------------------------------
@@ -1021,6 +1148,8 @@ AddEnvironmentDependencies, AddNodeEnvironmentDependencies: takes a list of envi
 
 AddVariableDependencies, AddNodeVariableDependency: takes a list of tuples (variable_name => value).
 
+AddConfigVariableDependencies AddNodeConfigVariableDependencies: takes a list of tuples (variable_name).
+	the variable's value is extracted from the node's config when generating the digest.
 
 AddSwitchDependencies, AddNodeSwitchDependencies: handles command line switches B<-D> and B<-u>.
 	AddNodeSwitchDependencies('node_which_uses_my_user_switch_regex' => '-u my_user_switch) ;

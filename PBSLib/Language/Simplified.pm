@@ -7,7 +7,7 @@ use File::Spec ;
 
 #-------------------------------------------------------------------------------
 
-# this module overrides the build in AddRule (and al.) to allow us to define with a simplex regex from
+# this module overrides the build in AddRule (and al.) to allow us to define with a simpler regex
 # than perl regex.
 #
 # it matches rules that are not meta builder and that have a simple text definition for the dependent

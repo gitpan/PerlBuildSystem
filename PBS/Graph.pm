@@ -611,7 +611,6 @@ if($node_type eq 'HASH')
 							CONFIG_NAMESPACES
 							LIB_PATH
 							USER_OPTIONS
-							NO_DIGEST
 							RULE_NAMESPACES
 							NO_EXTERNAL_LINK
 							)

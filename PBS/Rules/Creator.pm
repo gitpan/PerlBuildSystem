@@ -28,6 +28,7 @@ use Digest::MD5 qw(md5_hex) ;
 #-------------------------------------------------------------------------------
 
 use PBS::Constants ;
+use PBS::Depend ;
 use PBS::PBSConfig ;
 use PBS::Output ;
 use PBS::Rules::Builders ;
@@ -148,7 +149,7 @@ if(defined $dependencies && @$dependencies && $dependencies->[0] == 1 && @$depen
 			, $rule_info
 			) ;
 		
-		push @$dependencies, "__PBS_FORCE_TRIGGER:$dependent_to_check digest rebuilt." ;
+		push @$dependencies, PBS::Depend::FORCE_TRIGGER("$dependent_to_check digest rebuilt.") ;
 		}
 	}
 

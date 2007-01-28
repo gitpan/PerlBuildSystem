@@ -11,6 +11,8 @@ use t::Correctness::OneCFile;
 use t::Correctness::TwoCFiles;
 use t::Correctness::IncludeFiles;
 use t::Correctness::DependencyGraphIsNotATree;
+use t::Correctness::CDepender;
+use t::Correctness::DependingPbsfile;
 use t::ErrorHandling::NonExisting;
 use t::ErrorHandling::BuildError;
 use t::ErrorHandling::CyclicDependencies;

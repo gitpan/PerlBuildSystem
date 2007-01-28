@@ -1,11 +1,12 @@
 
 =for PBS =head1 Pbsfile locator test
 
-Test if the Pbsfile locator works properly. Pbsfiles that are not supposed to be loaded contain
-a single 'die' instruction. The following command will display information about how the Pbsfiles
-are located. -tda adds the pbsfile to the dependency graph dump.
+Test if the Pbsfile locator works properly with multiple source directories
 
-  pbs -no_warp -dsi -tno all -sd . -sd sd1 -sd sd2 -display_subpbs_search_info -display_all_subpbs_alternatives -cw2 green -sfi -tda
+Pbsfiles that are not supposed to be loaded contain a single 'die' instruction. The following command
+will display information about how the Pbsfiles are located. -tda adds the pbsfile to the dependency graph dump.
+
+  pbs -no_warp -dsi -tno all -sd . -sd sd1 -sd sd2 -display_subpbs_search_info -display_all_subpbs_alternatives -cw2 green -sfi -tda -o
 
 =cut
 

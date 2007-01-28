@@ -136,7 +136,7 @@ unless($builder_uses_perl_sub)
 	}
 	
 # nadim 12 june 2005, let's try to minimize  memory consumption
-# more can be done but this was an easy testl
+# more can be done but this was an easy test
 my $generated_builder = 
 	sub 
 	{
@@ -166,23 +166,6 @@ $shell_commands, $name, $file_name, $line
 , $tree
 ) = @_;
 
-# evaluate repository pathes for each node build
-# TODO: hmm the config might be shared so this is rather wrong or dangerous
-if($tree->{__NAME} =~ /^\./)
-	{
-	my @repository_pathes ;
-	
-	my $target_path = (File::Basename::fileparse($tree->{__NAME}))[1] ;
-	$target_path =~ s~/$~~ ;
-	
-	for my $repository (@{$tree->{__PBS_CONFIG}->{SOURCE_DIRECTORIES}})
-		{
-		push @repository_pathes, CollapsePath("$repository/$target_path") ;
-		}
-		
-	$tree->{__CONFIG}{PBS_REPOSITORIES} = \@repository_pathes ;
-	}
-	
 my @evaluated_shell_commands ;
 for my $shell_command (@{[@$shell_commands]}) # use a copy of @shell_commands, perl bug ???
 	{
@@ -343,7 +326,7 @@ sub EvaluateShellCommandForNode
 {
 my($shell_command, $shell_command_info, $tree, $dependencies, $triggered_dependencies) = @_ ;
 
-RunPluginSubs('EvaluateShellCommand', \$shell_command, $tree) ;
+RunPluginSubs($tree->{__PBS_CONFIG}, 'EvaluateShellCommand', \$shell_command, $tree, $dependencies, $triggered_dependencies) ;
 
 my $config = $tree->{__CONFIG} ;
 my $file_to_build = $tree->{__BUILD_NAME} || GetBuildName($tree->{__NAME}, $tree);
@@ -352,17 +335,18 @@ my @dependencies ;
 unless(defined $dependencies)
 	{
 	#extract them from tree if not passed as argument
-	@dependencies = map {$tree->{$_}{__BUILD_NAME} ;} grep { $_ !~ /^__/ ;}(keys %$tree) ;
+	@dependencies = map {$tree->{$_}{__BUILD_NAME} ;} grep { $_ !~ /^__/ && exists $tree->{$_}{__BUILD_NAME}}(keys %$tree) ;
 	}
 else
 	{
+	#~ @dependencies = grep {defined $_} @$dependencies ;
 	@dependencies = @$dependencies ;
 	}
-	
+
 my $dependency_list = join ' ', @dependencies ;
 
 my $build_directory = $tree->{__PBS_CONFIG}{BUILD_DIRECTORY} ;
-my $dependency_list_relative_build_directory = join(' ', map({my $copy = $_; $copy =~ s/$build_directory\/// ; $copy} @dependencies)) ;
+my $dependency_list_relative_build_directory = join(' ', map({my $copy = $_; $copy =~ s/\Q$build_directory\E[\/|\\]// ; $copy} @dependencies)) ;
 
 my @triggered_dependencies ;
 
@@ -395,6 +379,8 @@ $shell_command =~ s/\%BUILD_DIRECTORY/$build_directory/g ;
 
 $shell_command =~ s/\%FILE_TO_BUILD_PATH/$path/g ;
 $shell_command =~ s/\%FILE_TO_BUILD_NAME/$basename$ext/g ;
+$shell_command =~ s/\%FILE_TO_BUILD_BASENAME/$basename/g ;
+$shell_command =~ s/\%FILE_TO_BUILD_NO_EXT/$path\/$basename/g ;
 $shell_command =~ s/\%FILE_TO_BUILD/$file_to_build/g ;
 
 $shell_command =~ s/\%DEPENDENCY_LIST_RELATIVE_BUILD_DIRECTORY/$dependency_list_relative_build_directory/g ;

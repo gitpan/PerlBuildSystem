@@ -8,6 +8,7 @@ use strict ;
 use warnings ;
 use Carp ;
 use Time::HiRes qw(gettimeofday tv_interval) ;
+use Digest::MD5 qw(md5_hex) ;
 
 require Exporter ;
 use AutoLoader qw(AUTOLOAD) ;
@@ -117,10 +118,7 @@ for(@$build_sequence)
 		}
 	}
 	
-my $redirection_file =  $shell->GetInfo() . '_node_' . $node_name ;
-$redirection_file =~ s/\s/_/g ;
-$redirection_file =~ s/[[\]]/_/g ;
-$redirection_file =~ s/\//_/g ;
+my $redirection_file =  md5_hex($shell->GetInfo() . '_node_' . $node_name) ;
 
 my $pbs_build_buffers_directory = $node->{__PBS_CONFIG}{BUILD_DIRECTORY} . "/PBS_BUILD_BUFFERS/";
 
@@ -132,7 +130,7 @@ unless(-e $pbs_build_buffers_directory)
 	
 $redirection_file = $pbs_build_buffers_directory . $redirection_file ;
 
-#all output gors to files that might be kept if KEEP_PBS_BUILD_BUFFERS is set
+#all output goes to files that might be kept if KEEP_PBS_BUILD_BUFFERS is set
 #once the build is finished, the output is send to the master process
 
 open(OLDOUT, ">&STDOUT") ;
@@ -182,6 +180,14 @@ if(defined $node)
 		print ERROR "Caught unexpected exception from Build::NodeBuilder::BuildNode:\n$@" ;
 		}
 	
+	#~ if($pbs_config->{KEEP_PBS_BUILD_BUFFERS})
+		{
+		# this is displayed on the screen
+		print STDOUT INFO "Build buffer: $redirection_file\n" ;
+		print STDOUT INFO "Shell Info: " . $shell->GetInfo() . "\n" ;
+		#~ print STDOUT "Node: $node_name\n" ;
+		}
+		
 	#stop redirecting to a file
 	close(STDOUT) ;
 	close(STDERR) ;
@@ -210,13 +216,13 @@ my $channel     = shift ;
 my $file        = shift ;
 my $remove_file = shift ;
 
-open FILE, '<', $file or die "Can't open '$file': $!" ;
-while(<FILE>)
+open FILE_TO_SEND, '<', $file or die "Can't open '$file': $!" ;
+while(<FILE_TO_SEND>)
 	{
 	print $channel $_ ;
 	}
 	
-close(FILE) ;	
+close(FILE_TO_SEND) ;	
 
 print $channel "__PBS_FORKED_BUILDER___\n" ;
 

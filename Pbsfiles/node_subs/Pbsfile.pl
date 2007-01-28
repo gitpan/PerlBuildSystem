@@ -15,8 +15,12 @@ Test digest node specific attributes  through subs as arguments
 #~ AddConfig(USE_C_DEPENDER_SIMPLE => 1) ;
 AddConfig(C_DEPENDER_SYSTEM_INCLUDES => 1) ;
 
+use Devel::Depend::Cpp ;
+
+PbsUse('Configs/Compilers/gcc') ;
+
+#~ PbsUse('Configs/gcc') ;
 PbsUse('Rules/C') ;
-PbsUse('Configs/gcc') ;
 
 AddRule [VIRTUAL], 'all', ['all' => 'a.out'], BuildOk('') ;
 
@@ -25,11 +29,14 @@ AddRule 'a.out', ['a.out' => 'main.o', 'world.o']
 
 
 # add some node specific data, the node already matches another rule
+AddNodeConfigVariableDependencies(qr/world.o/, 'OPTIMIZE_CFLAGS') ;
+
 AddRule 'world.o', ['world.o']	, undef
 	# the job is done here
 	, [
-	  \&ChangeConfig
-          , \&ChangePbsConfig
+           \&ChangePbsConfig
+	  , \&ChangeConfig
+	  , \&CheckConfig
 	  #~, VerySpecialBuilderArguments('do this', 'do that')
 	  #~, SetOptimizationOption('-O2')
 	  #~, BuildShell($shell)
@@ -101,17 +108,31 @@ my
 $tree->{__CONFIG} = {%{$tree->{__CONFIG}}} ; # config is share get our own copy (note! this is not deep)
 
 $tree->{__CONFIG}{OPTIMIZE_CFLAGS} = '-O6' ;
+$tree->{__CONFIG}{CDEFINES} = '-Wall' ;
 $tree->{__CONFIG}{CFLAGS} = PBS::Config::EvalConfig
 				(
-				  '%OPTIMIZE_CFLAGS %WFLAGS %MODULE_CFLAGS'
+				  '%OPTIMIZE_CFLAGS %WFLAGS'
 				, $tree->{__CONFIG}
 				, 'CFLAGS'
 				, "config override at " . __FILE__ . __LINE__
 				) ;
-				
+}
+
+
+sub CheckConfig
+{
+my
+        (
+          $dependent_to_check
+        , $config
+        , $tree
+        , $inserted_nodes
+        ) = @_ ;
+
 use Data::TreeDumper ;
 PrintDebug DumpTree $tree->{__CONFIG} ;
 }
+
 
 
 sub ChangePbsConfig

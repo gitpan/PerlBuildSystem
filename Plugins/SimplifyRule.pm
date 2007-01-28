@@ -1,7 +1,11 @@
 
-=head1 AddRule
+=head1 SimplifyRuke
 
-Allow for user defined rule syntax
+PBS only accepts pure perl rules since 0.29. It is possible to write a plugin to allow
+user to defined rule syntax. This plugin defines a simplified format.
+
+note: AR ... [dependent => './dependency'] ;
+the ./ in the dependency definition forces it to be from the pbs root.
 
 =cut
 
@@ -48,7 +52,7 @@ if('ARRAY' eq ref $triggered_and_triggering)
 			
 		unless($build_ok)
 			{
-			PrintError($build_message) ;
+			PrintError("Invalid rule at '$file_name:$line' $build_message\n") ;
 			PbsDisplayErrorWithContext($file_name,$line) ;
 			die ;
 			}
@@ -70,8 +74,28 @@ return($name, $triggered_and_triggering) ;
 
 sub AddSubpbsRule
 {
+# called with arguments ($name, $node_regex, $Pbsfile, $pbs_package, @other_setup_data)
+# or ($node_regex, $Pbsfile), $name and $pbs_package will be generate
+# less than 2 arguments or 3 arguments is considered an error
+
 my ($file_name, $line, $rule_definition) = @_ ;
-my ($name, $node_regex, $Pbsfile, $pbs_package, @other_setup_data) = @$rule_definition ;
+my ($name, $node_regex, $Pbsfile, $pbs_package, @other_setup_data);
+
+if(@$rule_definition < 2 || @$rule_definition == 3)
+	{
+	die "   Not enough arguments to AddSubpbsRule called at '$file_name:$line'.\n" 
+		. "      Simplified AddSubpbsRule[s] either take 2 arguments (regex and pbsfile)\n"
+		. "      or 4 arguments (name, regex, pbsfile, package) and optional arguments.\n" ;
+	}
+elsif(@$rule_definition == 2)
+	{
+	($node_regex, $Pbsfile, $pbs_package) = @$rule_definition ;
+	$pbs_package = $name = "$node_regex | $Pbsfile" ; 
+	}
+else
+	{
+	($name, $node_regex, $Pbsfile, $pbs_package, @other_setup_data) = @$rule_definition ;
+	}
 
 unless('Regexp' eq ref $node_regex)
 	{
@@ -97,7 +121,7 @@ unless('Regexp' eq ref $node_regex)
 		}
 	else
 		{	
-		Carp::carp ERROR($build_message) ;
+		PrintError("Invalid rule at '$file_name:$line' $build_message\n") ;
 		PbsDisplayErrorWithContext($file_name,$line) ;
 		die ;
 		}
@@ -136,7 +160,7 @@ if(defined $dependent && '' eq ref $dependent && !$is_meta_rule)
 		
 	unless($dependency_regex_ok)
 		{
-		Carp::carp ERROR($dependency_regex_message) ;
+		PrintError("Invalid rule at '$file_name:$line' $dependency_regex_message\n") ;
 		PbsDisplayErrorWithContext($file_name,$line) ;
 		die ;
 		}
@@ -182,7 +206,7 @@ elsif (defined $dependent && 'HASH' eq ref $dependent)
 			}
 		else
 			{	
-			Carp::carp ERROR($build_message) ;
+			PrintError("Invalid rule at  '$file_name:$line' $build_message\n") ;
 			PbsDisplayErrorWithContext($file_name,$line) ;
 			die ;
 			}
@@ -253,7 +277,10 @@ sub BuildDependentRegex
 my $dependent_regex_definition = shift ;
 my $error_message   = '' ;
 
-return(0, 'Empty Regex definition') if $dependent_regex_definition eq '' ;
+if((! defined $dependent_regex_definition) || $dependent_regex_definition eq '')
+	{
+	return(0, 'Empty Regex definition') ;
+	}
 
 my ($dependent_name, $dependent_path, $dependent_ext) = File::Basename::fileparse($dependent_regex_definition,('\..*')) ;
 $dependent_path =~ s|\\|/|g;

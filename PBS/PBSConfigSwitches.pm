@@ -16,7 +16,7 @@ our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw(RegistredFlagsAndHelp) ;
-our $VERSION = '0.02' ;
+our $VERSION = '0.03' ;
 
 use PBS::Constants ;
 use PBS::Output ;
@@ -26,7 +26,7 @@ use PBS::Output ;
 my @registred_flags_and_help ; # allow plugins to register their switches
 my %registred_flags ; #only one flag will be set by Getopt::long. Give a warning to unsuspecting user
 
-RegisterDefaultPbsFlags() ; # reserve them so plugins can't modify their meining
+RegisterDefaultPbsFlags() ; # reserve them so plugins can't modify their meaning
 
 #-------------------------------------------------------------------------------
 sub RegisterFlagsAndHelp 
@@ -42,18 +42,26 @@ while( my ($switch, $variable, $help1, $help2) = splice(@_, 0, 4))
 	my $switch_copy = $switch ;
 	$switch_copy =~ s/(=|:).*$// ;
 	
+	my $switch_is_unique = 1 ;
 	for my $switch_unit (split('\|',$switch_copy))
 		{
 		if(exists $registred_flags{$switch_unit})
 			{
 			$succes = 0 ;
-			PrintWarning "In Plugin '$file_name:$line', switch '$switch_unit' already registered @ '$registred_flags{$switch_unit}'. Ignoring.\n" ;
+			$switch_is_unique = 0 ;
+			PrintWarning "        In Plugin '$file_name:$line', switch '$switch_unit' already registered @ '$registred_flags{$switch_unit}'. Ignoring.\n" ;
 			}
 		else
 			{
-			push @registred_flags_and_help, $switch, $variable, $help1, $help2 ;
 			$registred_flags{$switch_unit} = "$file_name:$line" ;
 			}
+		}
+		
+	if($switch_is_unique)
+		{
+		#~ PrintInfo "        Registering switch '$switch' In Plugin '$file_name:$line'.\n" ;
+		
+		push @registred_flags_and_help, $switch, $variable, $help1, $help2 ;
 		}
 	}
 
@@ -110,6 +118,8 @@ sub GetSwitches
 {
 my $pbs_config = shift || {} ;
 
+$PBS::Output::colorize++ ;
+
 $pbs_config->{DO_BUILD} = 1 ;
 
 $pbs_config->{JOBS_DIE_ON_ERROR} = 0 ;
@@ -117,26 +127,24 @@ $pbs_config->{JOBS_DIE_ON_ERROR} = 0 ;
 $pbs_config->{GENERATE_TREE_GRAPH_GROUP_MODE} = GRAPH_GROUP_NONE ;
 $pbs_config->{GENERATE_TREE_GRAPH_SPACING} = 1 ;
 
-$pbs_config->{RULE_NAMESPACES} = [] ;
-$pbs_config->{CONFIG_NAMESPACES} = [] ;
-$pbs_config->{SOURCE_DIRECTORIES} = [] ;
-$pbs_config->{LIB_PATH} = [] ;
-$pbs_config->{DISPLAY_BUILD_INFO} = [] ;
-$pbs_config->{DISPLAY_NODE_INFO} = [] ;
-$pbs_config->{USER_OPTIONS} = {} ;
-$pbs_config->{COMMAND_LINE_DEFINITIONS} = {} ;
-$pbs_config->{DISPLAY_DEPENDENCIES_REGEX} = [] ;
-$pbs_config->{GENERATE_TREE_GRAPH_CLUSTER_NODE} = [] ;
-$pbs_config->{GENERATE_TREE_GRAPH_EXCLUDE} = [] ;
-$pbs_config->{GENERATE_TREE_GRAPH_INCLUDE} = [] ;
-$pbs_config->{DISPLAY_PBS_CONFIGURATION} = [] ;
-$pbs_config->{VERBOSITY} = [] ;
-$pbs_config->{TARGET} = [] ;
-$pbs_config->{POST_PBS} = [] ;
-$pbs_config->{DISPLAY_PROGRESS_BAR}++ ;
-$pbs_config->{DISPLAY_COMPACT_DEPEND_INFORMATION}++ ;
+$pbs_config->{RULE_NAMESPACES} ||= [] ;
+$pbs_config->{CONFIG_NAMESPACES} ||= [] ;
+$pbs_config->{SOURCE_DIRECTORIES} ||= [] ;
+$pbs_config->{PLUGIN_PATH} ||= [] ;
+$pbs_config->{LIB_PATH} ||= [] ;
+$pbs_config->{DISPLAY_BUILD_INFO} ||= [] ;
+$pbs_config->{DISPLAY_NODE_INFO} ||= [] ;
+$pbs_config->{USER_OPTIONS} ||= {} ;
+$pbs_config->{COMMAND_LINE_DEFINITIONS} ||= {} ;
+$pbs_config->{DISPLAY_DEPENDENCIES_REGEX} ||= [] ;
+$pbs_config->{GENERATE_TREE_GRAPH_CLUSTER_NODE} ||= [] ;
+$pbs_config->{GENERATE_TREE_GRAPH_EXCLUDE} ||= [] ;
+$pbs_config->{GENERATE_TREE_GRAPH_INCLUDE} ||= [] ;
+$pbs_config->{DISPLAY_PBS_CONFIGURATION} ||= [] ;
+$pbs_config->{VERBOSITY} ||= [] ;
+$pbs_config->{POST_PBS} ||= [] ;
 
-$pbs_config->{USE_WARP1_5_FILE}++ ; # this changes with the current warp version
+my $load_config_closure = sub {LoadConfig(@_, $pbs_config) ;} ;
 
 my @flags_and_help =
 	(
@@ -150,6 +158,10 @@ my @flags_and_help =
 		
 	, 'hnd|help_narrow_display'         => \$pbs_config->{DISPLAY_HELP_NARROW_DISPLAY}
 		, 'Writes the flag name and its explanation on separate lines.'
+		, ''
+
+	, 'generate_bash_completion_script'   => \$pbs_config->{GENERATE_BASH_COMPLETION_SCRIPT}
+		, 'Output a bash completion script and exits.'
 		, ''
 
 	, 'pp|pbsfile_pod'                    => \$pbs_config->{DISPLAY_PBSFILE_POD}
@@ -190,23 +202,19 @@ EOH
 		, '-pbsfile_pod or -pbs2pod is dumped in raw pod format.'
 		, ''
 		
-	, 'd|display_pod_documenation:s'     => \$pbs_config->{DISPLAY_POD_DOCUMENTATION}
+	, 'd|display_pod_documenation:s'    => \$pbs_config->{DISPLAY_POD_DOCUMENTATION}
 		, 'Interactive PBS documentation display and search.'
 		, ''
-		
-	#~ , 't|target:s'                      => $pbs_config->{TARGET}
-		#~ , 'Target to build'
-		#~ , ''
 		
 	, 'w|wizard:s'                      => \$pbs_config->{WIZARD}
 		, 'Starts a wizard.'
 		, ''
 		
-	, 'wi|display_wizard_info'                      => \$pbs_config->{DISPLAY_WIZARD_INFO}
+	, 'wi|display_wizard_info'          => \$pbs_config->{DISPLAY_WIZARD_INFO}
 		, 'Shows Informatin about the found wizards.'
 		, ''
 		
-	, 'wh|display_wizard_help'                      => \$pbs_config->{DISPLAY_WIZARD_HELP}
+	, 'wh|display_wizard_help'          => \$pbs_config->{DISPLAY_WIZARD_HELP}
 		, 'Wizards show more user help.'
 		, ''
 		
@@ -214,8 +222,8 @@ EOH
 		, 'Displays Pbs version.'
 		, ''
 		
-	, 'nge|no_global_environement'      => \$pbs_config->{NO_GLOBAL_ENVIRONEMENT}
-		, 'Environement variable \'PBS_FLAGS\' will not be used.'
+	, 'no_colorization'                 => \&PBS::Output::NoColors
+		, 'Removes colors from output. Usefull when redirecting to a file.'
 		, ''
 		
 	, 'c|colorize'                      => \$PBS::Output::colorize
@@ -256,7 +264,7 @@ EOT
 		, 'Set the warning color.'
 		, ''
 
-	, 'cw2|color_warning2=s'              => \&PBS::Output::SetOutputColor
+	, 'cw2|color_warning2=s'            => \&PBS::Output::SetOutputColor
 		, 'Set the alternate warning color.'
 		, ''
 
@@ -264,7 +272,7 @@ EOT
 		, 'Set the information color.'
 		, ''
 
-	, 'ci2|color_info2=s'                 => \&PBS::Output::SetOutputColor
+	, 'ci2|color_info2=s'               => \&PBS::Output::SetOutputColor
 		, 'Set the alternate information color.'
 		, ''
 
@@ -296,7 +304,7 @@ EOT
 		, 'Use only a response file named after the user or the one given on the command line.'
 		, ''
 		
-	, 'nprf|no_pbs_response_file'     => \$pbs_config->{NO_PBS_RESPONSE_FILE}
+	, 'nprf|no_pbs_response_file'       => \$pbs_config->{NO_PBS_RESPONSE_FILE}
 		, 'Don\'t use any response file.'
 		, ''
 		
@@ -304,15 +312,27 @@ EOT
 		, "Path to the pbs libs. The directory must start at '/' (root) or '.' or pbs will display an error message and exit."
 		, ''
 		
-	, 'ppp|pbs_plugin_path=s'              => $pbs_config->{PLUGIN_PATH}
+	, 'display_pbs_lib_path'            => \$pbs_config->{DISPLAY_LIB_PATH}
+		, "Displays PBS lib pathes (for the current project) and exits."
+		, ''
+		
+	, 'ppp|pbs_plugin_path=s'           => $pbs_config->{PLUGIN_PATH}
 		, "Path to the pbs plugins. The directory must start at '/' (root) or '.' or pbs will display an error message and exit."
 		, ''
 		
-	, 'dpli|display_plugin_load_info'            => \$pbs_config->{DISPLAY_PLUGIN_LOAD_INFO}
+	, 'display_pbs_plugin_path'         => \$pbs_config->{DISPLAY_PLUGIN_PATH}
+		, "Displays PBS plugin pathes (for the current project) and exits."
+		, ''
+		
+	, 'no_default_path_warning'              => \$pbs_config->{NO_DEFAULT_PATH_WARNING}
+		, "When this switch is used, PBS will not display a warning when using the distribution's PBS lib and plugins."
+		, ''
+		
+	, 'dpli|display_plugin_load_info'   => \$pbs_config->{DISPLAY_PLUGIN_LOAD_INFO}
 		, "displays which plugins are loaded."
 		, ''
 		
-	, 'display_plugin_runs'                => \$pbs_config->{DISPLAY_PLUGIN_RUNS}
+	, 'display_plugin_runs'             => \$pbs_config->{DISPLAY_PLUGIN_RUNS}
 		, "displays which plugins subs are run."
 		, ''
 		
@@ -325,7 +345,11 @@ EOT
 		, ''
 		
 	, 'dpu|display_pbsuse'              => \$pbs_config->{DISPLAY_PBSUSE}
-		, "displays which file is loaded by a 'PbsUse'."
+		, "displays which pbs module is loaded by a 'PbsUse'."
+		, ''
+		
+	, 'dpuv|display_pbsuse_verbose'     => \$pbs_config->{DISPLAY_PBSUSE_VERBOSE}
+		, "displays which pbs module is loaded by a 'PbsUse' (full path) and where the the PbsUse call was made."
 		, ''
 		
 	, 'dput|display_pbsuse_time'        => \$pbs_config->{DISPLAY_PBSUSE_TIME}
@@ -338,6 +362,10 @@ EOT
 		
 	, 'dpus|display_pbsuse_statistic'    => \$pbs_config->{DISPLAY_PBSUSE_STATISTIC}
 		, "displays 'PbsUse' statistic."
+		, ''
+		
+	, 'display_md5_statistic'            => \$pbs_config->{DISPLAY_MD5_STATISTICS}
+		, "displays 'MD5' statistic."
 		, ''
 		
 	, 'build_directory=s'               => \$pbs_config->{BUILD_DIRECTORY}
@@ -365,10 +393,26 @@ EOT
 		, 'Configuration name space to be used by DefaultBuild()'
 		, ''
 		
+	, 'save_config=s'                   => \$pbs_config->{SAVE_CONFIG}
+		, 'PBS will save the config, used in each PBS run, in the build directory'
+		, "Before a subpbs is run, its start config will be saved in a file. PBS will display the filename so you "
+		  . "can load it later with '--load_config'. When working with a hirarchical build with configuration "
+		  . "defined at the top level, it may happend that you want to run pbs at lower levels but without configuration, "
+		  . "PBS will probably fail. Run you system from the top level with '--save_config', then run from the subpbs " 
+		  . "with the the saved config as argument to the '--load_config' option."
+		
+	, 'load_config=s'                   => $load_config_closure
+		, 'PBS will load the given config before running the Pbsfile.'
+		, 'see --save_config.'
+		
 	, 'fb|force_build'                  => \$pbs_config->{FORCE_BUILD}
 		, 'Debug flags cancel the build pass, this flag re-enables the build pass.'
 		, ''
 		
+	, 'check_dependencies_at_build_time' => \$pbs_config->{CHECK_DEPENDENCIES_AT_BUILD_TIME}
+		, 'Skipps the node build if no dependencies have changed or where rebuild to the same state.'
+		, ''
+
 	, 'no_build'                     => \$pbs_config->{NO_BUILD}
 		, 'Cancel the build pass. Only the dependency and check passes are run.'
 		, ''
@@ -381,10 +425,6 @@ EOT
 		, 'Continues building even if a node couldn\'t be buid. You might want to use --bi instead.'
 		, ''
 		
-	, 'no_digest'                       => \$pbs_config->{NO_DIGEST}
-		, 'No digest checking is performed, existing digest is erased.'
-		, ''
-		
 	, 'nh|no_header'                    => \$pbs_config->{DISPLAY_NO_STEP_HEADER}
 		, 'PBS won\'t display the steps it is at. (Depend, Check, Build).'
 		, ''
@@ -393,11 +433,11 @@ EOT
 		, 'Dependencies Linking from other Pbsfile stops the build if any local rule can match.'
 		, ''
 
-	, 'nsi|no_subpbs_info'                => \$pbs_config->{NO_SUBPBS_INFO}
+	, 'nsi|no_subpbs_info'              => \$pbs_config->{NO_SUBPBS_INFO}
 		, 'Dependency information will be displayed on the same line for all depend.'
 		, ''
 		
-	, 'dsi|display_subpbs_info'     => \$pbs_config->{DISPLAY_DEPENDENCY_INFO}
+	, 'dsi|display_subpbs_info'         => \$pbs_config->{DISPLAY_DEPENDENCY_INFO}
 		, 'Display a message when depending a node in a subpbs.'
 		, ''
 		
@@ -565,8 +605,8 @@ EOT
 		, 'When set and if an error occures in a Pbsfile, PBS will display the error line.'
 		, ''
 		
-	, 'dpl|display_package_loading'     => \$pbs_config->{DISPLAY_PACKAGE_LOADING}
-		, 'Display which PBS package is being loaded.'
+	, 'dpl|display_pbsfile_loading'     => \$pbs_config->{DISPLAY_PBSFILE_LOADING}
+		, 'Display which pbsfile is loaded as well as its runtime package.'
 		, ''
 		
 	, 'dspd|display_sub_pbs_definition' => \$pbs_config->{DISPLAY_SUB_PBS_DEFINITION}
@@ -601,8 +641,8 @@ EOT
 		, '(DF). Display all registred configs and how they are build.'
 		, ''
 		
-	, 'display_non_existing_config_variable'         => \$pbs_config->{DISPLAY_NON_EXISTING_CONFIG_VARIABLE}
-		, 'Emit a warning if a non existing config variable is queried.'
+	, 'no_silent_override'         => \$pbs_config->{NO_SILENT_OVERRIDE}
+		, 'Makes all SILENT_OVERRIDE configuration visible.'
 		, ''
 		
 	, 'display_subpbs_search_info'         => \$pbs_config->{DISPLAY_SUBPBS_SEARCH_INFO}
@@ -625,7 +665,7 @@ PBS will display its search for source files.
   $> pwd
   /home/nadim/Dev/PerlModules/PerlBuildSystem-0.05
 
-  $>perl pbs.pl -o -dsi -c all
+  $>perl pbs.pl -o --display_search_info all
   No Build directory! Using '/home/nadim/Dev/PerlModules/PerlBuildSystem-0.05'.
   No source directory! Using '/home/nadim/Dev/PerlModules/PerlBuildSystem-0.05'.
   ...
@@ -640,7 +680,7 @@ PBS will display its search for source files.
   Final Location for ./HERE.o @ /home/nadim/Dev/PerlModules/PerlBuildSystem-0.05/HERE.o
   ...
   
-See switch: --daa.
+See switch: --display_all_alternatives.
 EOT
 	, 'daa|display_all_alternates'      => \$pbs_config->{DISPLAY_SEARCH_ALTERNATES}
 		, 'Display all the files found in the source directories.'
@@ -700,6 +740,10 @@ EOT
 		, '(DF) Display the dependencies for each file processed.'
 		, ''
 		
+	, 'ddl|display_dependencies_long'         => \$pbs_config->{DEBUG_DISPLAY_DEPENDENCIES_LONG}
+		, '(DF) Display one dependency perl line.'
+		, ''
+		
 	, 'ddt|display_dependency_time'     => \$pbs_config->{DISPLAY_DEPENDENCY_TIME}
 		, ' Display the time spend in each Pbsfile.'
 		, ''
@@ -708,7 +752,7 @@ EOT
 		, ' Display the time spend checking the dependency tree.'
 		, ''
 		
-	, 'dcdi|display_c_dependency_info'     => \$pbs_config->{DISPLAY_C_DEPENDENCY_INFO}
+	, 'dcdi|display_c_dependency_info'  => \$pbs_config->{DISPLAY_C_DEPENDENCY_INFO}
 		, 'Display information while depending C files.'
 		, ''
 		
@@ -720,12 +764,16 @@ EOT
 		, 'Display the result of each dependency step.'
 		, ''
 		
-	, 'ncd|no_c_dependencies'      => \$pbs_config->{NO_C_DEPENDENCIES}
+	, 'ncd|no_c_dependencies'           => \$pbs_config->{NO_C_DEPENDENCIES}
 		, 'completely ignore c dependencies.'
 		, ''
 		
 	, 'dcd|display_c_dependencies'      => \$pbs_config->{DISPLAY_C_DEPENDENCIES}
 		, 'Display the dependencies that are newer than a c file.'
+		, ''
+		
+	, 'display_cpp_output'          => \$pbs_config->{DISPLAY_CPP_OUTPUT}
+		, 'Display the command and output of the program generating dependencies.'
 		, ''
 		
 	, 'ddr|display_dependencies_regex=s'=> $pbs_config->{DISPLAY_DEPENDENCIES_REGEX}
@@ -756,12 +804,20 @@ EOT
 		, 'Display the expected and the actual digest for each node.'
 		, ''
 		
-	, 'display_different_digest_only'   => \$pbs_config->{DISPLAY_DIFFERENT_DIGEST_ONLY}
+	, 'dddo|display_different_digest_only'   => \$pbs_config->{DISPLAY_DIFFERENT_DIGEST_ONLY}
 		, 'Only display when a digest are diffrent.'
 		, ''
 		
 	, 'display_cyclic_tree'             => \$pbs_config->{DEBUG_DISPLAY_CYCLIC_TREE}
 		, '(DF) Display the portion of the dependency tree that is cyclic'
+		, ''
+		
+	, 'no_source_cyclic_warning'             => \$pbs_config->{NO_SOURCE_CYCLIC_WARNING}
+		, 'No warning is displayed if a cycle involving source files is found.'
+		, ''
+		
+	, 'die_source_cyclic_warning'             => \$pbs_config->{DIE_SOURCE_CYCLIC_WARNING}
+		, 'Die if a cycle involving source files is found (default is warn).'
 		, ''
 		
 	, 'tt|text_tree:s'                  => \$pbs_config->{DEBUG_DISPLAY_TEXT_TREE}
@@ -788,6 +844,11 @@ EOT
 		, '(DF) Display which Pbsfile was used to depend each node.'
 		, ''
 		
+	, 'tia|tree_inserted_at'               => \$pbs_config->{DEBUG_DISPLAY_TREE_INSERTED_AT}
+		, '(DF) Display where the node was inserted.'
+		, ''
+		
+
 	, 'tnd|tree_display_no_dependencies'        => \$pbs_config->{DEBUG_DISPLAY_TREE_NO_DEPENDENCIES}
 		, '(DF) Don\'t show child nodes data.'
 		, ''
@@ -1002,25 +1063,13 @@ EOT
 		, "Display the time spend in warp creation or use."
 		, ''
 		
-	#~ , 'warp'                => \$pbs_config->{USE_WARP_FILE}
-		#~ , "use warp to speed up PBS. warp file is build if necessary."
-		#~ , ''
-		
-	, 'warp'             => \$pbs_config->{USE_WARP1_5_FILE}
-		, "use warp to speed up PBS. warp file is build if necessary."
-		, ''
-		
-	, 'warp1_6'             => \$pbs_config->{USE_WARP1_6_FILE}
-		, "use warp to speed up PBS. warp file is build if necessary."
+	, 'warp=s'             => \$pbs_config->{WARP}
+		, "specify which warp to use."
 		, ''
 		
 	, 'no_warp'             => \$pbs_config->{NO_WARP}
 		, "no warp will be used."
 		, ''
-		
-	#~ , 'warp2'               => \$pbs_config->{USE_WARP2_FILE}
-		#~ , "use warp2 to speed up PBS. warp file is build if necessary. This is still a prototype."
-		#~ , ''
 		
 	, 'dwt|display_warp_tree'            => \$pbs_config->{DISPLAY_WARP_TREE}
 		, "Display the warp tree. Nodes to rebuild have a '*' prepended and are displayed in the error color."
@@ -1051,6 +1100,47 @@ EOT
 
 
 return(@flags_and_help, @registred_flags_and_help) ;
+}
+
+#-------------------------------------------------------------------------------
+
+sub LoadConfig
+{
+my ($switch, $file_name, $pbs_config) = @_ ;
+
+$pbs_config->{LOAD_CONFIG} = $file_name ;
+
+my ($loaded_pbs_config, $loaded_config) = do $file_name ;
+
+if(! defined $loaded_config|| ! defined $loaded_pbs_config)
+	{
+	die WARNING2 "Error in configuration file'$file_name'!\n" ;
+	}
+else
+	{
+	#~ # override the pbs config ;
+	#~ while( my ($key, $value) = each %$loaded_pbs_config)
+		#~ {
+		#~ if(defined $value)
+			#~ {
+			#~ next if $key eq 'TARGETS' ;
+			#~ next if $key eq 'ORIGINAL_ARGV' ;
+			#~ next if $key eq 'COMMAND_LINE_DEFINITIONS' ;
+			#~ # next if $key eq '' ;
+			
+			#~ $pbs_config->{$key} = $value ;
+			#~ }
+		#~ }
+		
+	# add the configs
+	$pbs_config->{LOADED_CONFIG} = $loaded_config ;
+	
+	#~ while( my ($key, $value) = each %$loaded_config)
+		#~ {
+		#~ $pbs_config->{COMMAND_LINE_DEFINITIONS}{$key} = $value ;
+		#~ }
+	
+	}
 }
 
 #-------------------------------------------------------------------------------
@@ -1190,6 +1280,64 @@ for (my $i = 0 ; $i < @flags_and_help; $i += 4)
 	print(INFO( "$help_text\n")) ;
 	}
 }                    
+
+#-------------------------------------------------------------------------------
+
+sub GenerateBashCompletionScript
+{
+my @flags_and_help = GetSwitches() ;
+
+my @switches ;
+for (my $i = 0 ; $i < @flags_and_help; $i += 4)
+	{
+	my ($switch, $help_text, $long_help_text) = ($flags_and_help[$i], $flags_and_help[$i + 2], $flags_and_help[$i + 3]) ;
+	push @switches, $switch ;
+	}
+
+
+print <<'EOH' ;
+_pbs_bash_completion()
+{
+    local cur
+
+    COMPREPLY=()
+    cur=${COMP_WORDS[COMP_CWORD]}
+
+    # completing an option (may or may not be separated by a space)
+
+    if [[ "$cur" == -* ]]; then
+	COMPREPLY=( $( compgen -W '\
+			\
+EOH
+
+for my $switch (sort @switches)
+	{
+	my @switch_x = split('\|', $switch) ;
+	
+	#~ print "$switch => \n" ;
+	for (@switch_x) 
+		{
+		s/=.*// ;
+		s/:.*// ;
+		
+		print "\t\t\t-$_ --$_ \\\n" ;
+		}
+		
+	print "\t\t\t\\ \n" ;
+	}
+	
+print <<'EOF' ;	
+			' -- $cur ) )
+#    else
+#	_filedir
+    fi
+
+    return 0
+}
+complete -F _pbs_bash_completion -o default pbs
+EOF
+
+}
 
 #-------------------------------------------------------------------------------
 

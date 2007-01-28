@@ -79,7 +79,7 @@ _EOF_
 sub one_directory : Test(16) {
 # Write files
     $t->write_pbsfile(<<"_EOF_");
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
     PbsUse('Rules/C');
 
     AddRule 'test-c', [ 'test-c$t::PBS::_exe' => '1.o', '2.o' ] =>
@@ -121,7 +121,7 @@ sub subdirectories : Test(16) {
 
 # Write files
     $t->write_pbsfile(<<"_EOF_");
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
 
     AddRule 'test-c', [ 'test-c$t::PBS::_exe' => 'dir1/1.o', 'dir2/2.o' ] =>
 	'%CC %CFLAGS -o %FILE_TO_BUILD %DEPENDENCY_LIST';
@@ -131,12 +131,12 @@ sub subdirectories : Test(16) {
 _EOF_
 
     $t->write('dir1/Pbsfile.pl', <<'_EOF_');
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
     PbsUse('Rules/C');
 _EOF_
 
     $t->write('dir2/Pbsfile.pl', <<'_EOF_');
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
     PbsUse('Rules/C');
 _EOF_
 

@@ -776,7 +776,7 @@ You can then include it in you Pbsfile.
 	
 
 B<PbsUse> will automatically append '.pm' at the end of the file name. If the file can't be found in the same
-directory as the Pbsfile, the environment variable B<PBS_LIB_PATH> will be used to point to the root directory where the files are to be searched. 
+directory as the Pbsfile, the -plp option will be used to point to the root directory where the files are to be searched. 
 
 I recommend that you keep all your rules in the library directory. It is possible to have rules and configuration definitions in the same lib file 
 but it is better to keep them separated.

@@ -59,7 +59,7 @@ if(defined $pbs_config->{DEBUG_DISPLAY_TREE_NAME_ONLY})
 	{
 	$FilterDump= sub #no private data
 			{
-			my $tree = shift ;
+			my ($tree) = @_ ;
 			
 			if('HASH' eq ref $tree)
 				{
@@ -74,9 +74,11 @@ if(defined $pbs_config->{DEBUG_DISPLAY_TREE_NAME_ONLY})
 							   (/^__BUILD_NAME$/  && defined $pbs_config->{DEBUG_DISPLAY_TREE_NAME_BUILD})
 							|| (/^__TRIGGERED$/   && defined $pbs_config->{DEBUG_DISPLAY_TREE_NODE_TRIGGERED_REASON})
 							|| (/^__DEPENDED_AT$/ && defined $pbs_config->{DEBUG_DISPLAY_TREE_DEPENDED_AT})
+							|| (/^__INSERTED_AT$/ && defined $pbs_config->{DEBUG_DISPLAY_TREE_INSERTED_AT})
 							#~ || /^__VIRTUAL/
 							)
 							{
+							# display these
 							}
 						else
 							{
@@ -118,7 +120,7 @@ if(defined $pbs_config->{DEBUG_DISPLAY_TREE_NAME_ONLY})
 					push @keys_to_dump, $key_name ;
 					}
 				
-				return('HASH', undef, sort {$a =~ /^__/ ? 0 : $b =~ /^__/ ? 1 : 0 } sort @keys_to_dump) ;
+				return('HASH', undef, sort {$a =~ /^__/ ? 1 : $b =~ /^__/ ? 1 : 0 } sort @keys_to_dump) ;
 				}
 				
 			return (Data::TreeDumper::DefaultNodesToDisplay($tree)) ;
@@ -137,7 +139,7 @@ else
 			# try to reduce tree dump to a minimal
 			# undefined entries or entries pointing to empty structure are not displayed
 			
-			my $tree = shift ;
+			my ($tree, $level, $path, $nodes_to_display, $setup, $filter_argument) = @_ ;
 			
 			if('HASH' eq ref $tree)
 				{
@@ -147,21 +149,33 @@ else
 					{
 					if(/^__/)
 						{
-						# take in all the nodes data
-						
-						#~ # more filtering possible 
-						#~ if
-							#~ (
+						if
+							(
+							   (/^__PARENTS$/ && defined $pbs_config->{DEBUG_DISPLAY_TREE_NO_DEPENDENCIES})
+							#~ || (/^__DEPENDENCY_TO/ && defined $pbs_config->{DEBUG_DISPLAY_TREE_NO_DEPENDENCIES})
 							    #~ $_ eq '__VIRTUAL'
-							#~ )
-							#~ {
-							#~ push @keys_to_dump, $_ ;
-							#~ }
+							)
+							{
+							next ;
+							}
 							
 						push @keys_to_dump, $_ ;
 						}
 					else
 						{
+						# handle -tnd
+						if($pbs_config->{DEBUG_DISPLAY_TREE_NO_DEPENDENCIES})
+							{
+							my $last_element = $setup->{__PATH_ELEMENTS}[-1] ;
+							my $name = $last_element->[1] || '' ;
+							
+							if($name !~ /__/ && /^[^__]/ )
+								{
+								#~ PrintDebug "skipping $_\n" ;
+								next ;
+								}
+							}
+							
 						# remove empty entries
 						for my $reference_type (ref $tree->{$_})
 							{

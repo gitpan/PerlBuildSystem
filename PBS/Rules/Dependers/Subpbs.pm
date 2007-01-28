@@ -8,7 +8,8 @@ use strict ;
 use warnings ;
 use Data::TreeDumper ;
 use Carp ;
- 
+use File::Spec::Functions qw(:ALL) ;
+
 require Exporter ;
 use AutoLoader qw(AUTOLOAD) ;
 
@@ -78,7 +79,7 @@ if(exists $depender_definition->{ALIAS})
 		die ;
 		}
 	
-	unless(File::Spec->file_name_is_absolute($depender_definition->{ALIAS}) || $depender_definition->{ALIAS} =~ /^\.\//)
+	unless(file_name_is_absolute($depender_definition->{ALIAS}) || $depender_definition->{ALIAS} =~ /^\.\//)
 		{
 		$depender_definition->{ALIAS} = './' . $depender_definition->{ALIAS} ;
 		}
@@ -86,13 +87,13 @@ if(exists $depender_definition->{ALIAS})
 	
 my $pbs_config = GetPbsConfig($package) ;
 
-if(exists $depender_definition->{BUILD_DIRECTORY} && !File::Spec->file_name_is_absolute($depender_definition->{BUILD_DIRECTORY}))
+if(exists $depender_definition->{BUILD_DIRECTORY} && !file_name_is_absolute($depender_definition->{BUILD_DIRECTORY}))
 	{
 	$depender_definition->{BUILD_DIRECTORY} =~ s/^\.\/// ;
 	$depender_definition->{BUILD_DIRECTORY} = $pbs_config->{BUILD_DIRECTORY} . '/' . $depender_definition->{BUILD_DIRECTORY} ;
 	}
 	
-#~ unless(File::Spec->file_name_is_absolute($depender_definition->{PBSFILE}))
+#~ unless(file_name_is_absolute($depender_definition->{PBSFILE}))
 	#~ {
 	#~ # make pbsfile full path
 	#~ $depender_definition->{PBSFILE} =~ s/^\.\/// ;

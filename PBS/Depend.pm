@@ -12,6 +12,7 @@ use Data::TreeDumper ;
 use Time::HiRes ;
 use Tie::Hash::Indexed ;
 use File::Basename ;
+use File::Spec::Functions qw(:ALL) ;
 
 require Exporter ;
 use AutoLoader qw(AUTOLOAD) ;
@@ -20,7 +21,7 @@ our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw(CreateDependencyTree) ;
-our $VERSION = '0.06' ;
+our $VERSION = '0.08' ;
 
 use PBS::PBS ;
 use PBS::Output ;
@@ -29,10 +30,95 @@ use PBS::Triggers ;
 use PBS::PostBuild ;
 use PBS::Plugin;
 
+#-----------------------------------------------------------------------------------------
+
+sub SYNCHRONIZE
+{
+die "SYNCHRONIZE expected 3 arguments" unless 3 == @_ ;
+
+my
+(
+  $unsynchronized_dependency_file_name
+, $dependency_file_name
+, $message_format
+) = @_ ;
+
+return
+	(
+	bless 
+		(
+		{
+		  SOURCE_FILE      => $unsynchronized_dependency_file_name
+		, DESTINATION_FILE => $dependency_file_name
+		, MESSAGE_FORMAT   => $message_format
+		}
+		, "PBS_SYNCHRONIZE"
+		)
+	) ;
+}
+
+sub FORCE_TRIGGER
+{
+my $reason = shift || die "Forced trigger must have a reason\n" ;
+
+return
+	(
+	bless
+		(
+		  { MESSAGE => $reason }
+		, "PBS_FORCE_TRIGGER"
+		)
+	) ;
+}
+
+#-----------------------------------------------------------------------------------------
+
+sub SynchronizeAfterBuild
+{
+# called everytime a node is build.
+# check if any of the node dependencies needs synchronization
+
+my $node = shift ;
+
+for my $dependency_name (keys %$node)
+	{
+	next if $dependency_name =~ /^__/ ; # eliminate private data
+	
+	if(exists $node->{$dependency_name}{__SYNCHRONIZE})
+		{
+		my $dependents_built = $node->{$dependency_name}{__SYNCHRONIZE_DEPENDENTS_BUILD} ;
+		$dependents_built = defined $dependents_built ? $dependents_built : 0 ;
+		$dependents_built += 1 ; # this node
+		
+		my $number_of_dependents = 1 ;
+		if(exists $node->{$dependency_name}{__LINKED})
+			{
+			$number_of_dependents += $node->{$dependency_name}{__LINKED} ;
+			}
+			
+		if($dependents_built == $number_of_dependents)
+			{
+			my $synch_list = $node->{$dependency_name}{__SYNCHRONIZE} ;
+			for my $file_to_synchronize (keys %$synch_list)
+				{
+				my $message_format = $synch_list->{$file_to_synchronize}{MESSAGE_FORMAT} ;
+				PrintWarning sprintf($message_format , $dependency_name) unless $PBS::Shell::silent_commands ;
+				
+				unless(rename($file_to_synchronize, $synch_list->{$file_to_synchronize}{TO_FILE}))
+					{
+					PrintError "Error synchronizing '$file_to_synchronize' to '$synch_list->{$file_to_synchronize}{TO_FILE}': $!\n" ;
+					}
+				}
+			}
+		else	
+			{
+			$node->{$dependency_name}{__SYNCHRONIZE_DEPENDENTS_BUILD} = $dependents_built ;
+			}
+		}
+	}
+}
+
 #-------------------------------------------------------------------------------
-# July 2005, try to figure out how to implement micro warps
-our %used_pbsfiles ;
-our %used_pbsfiles_located ;
 
 sub CreateDependencyTree
 {
@@ -61,11 +147,9 @@ for my $regex (@{$pbs_config->{DISPLAY_DEPENDENCIES_REGEX}})
 		}
 	}
 	
-$tree->{__DEPENDED}++ ; # depend sub tree once only flag
-$tree->{__DEPENDED_AT} = $Pbsfile ;
-
 my %dependency_rules ; # keep a list of  which rules generated which dependencies
 my $has_dependencies = 0 ;
+my $has_matching_non_subpbs_rules = 0 ;
 my @sub_pbs ; # list of subpbs matching this node
 
 tie my %triggered_nodes, 'Tie::Hash::Indexed';
@@ -136,6 +220,9 @@ for(my $rule_index = 0 ; $rule_index < @$dependency_rules ; $rule_index++)
 	
 	if($triggered)
 		{
+		$tree->{__DEPENDED}++ ; # depend sub tree once only flag
+		$tree->{__DEPENDED_AT} = $Pbsfile ;
+		
 		my $subs_list = $dependency_rules->[$rule_index]{NODE_SUBS} ;
 		
 		if(defined $subs_list)
@@ -188,31 +275,42 @@ for(my $rule_index = 0 ; $rule_index < @$dependency_rules ; $rule_index++)
 			
 			if($pbs_config->{DEBUG_DISPLAY_DEPENDENCIES} && $node_name_matches_ddr)
 				{
-				PrintInfo("$node_name has matching sub pbs, rule $rule_index:$rule_info\n") ;
+				PrintInfo("   $node_name has matching sub pbs, rule $rule_index:$rule_info\n") ;
 				}
 				
 			next ;
 			}
-			
+		else
+			{
+			$has_matching_non_subpbs_rules++ ;
+			}
+		
 		#~ warn DumpTree(\@dependencies, "dependencies:") ;
 		
 		# transform the node name into an internal structure and check for node attributes
 		@dependencies = map
 				{
-				my ($dependency_name, $dependency_attribute) ;
-				
-				
-				if(/(.*)::(.*)$/)
+				if(('' eq ref $_) && (! /^__/))
 					{
-					# handle node user attribute
-					
-					# return a hash
+					if(/(.*)::(.*)$/)
 						{
-						  NAME => $1
-						, RULE_INDEX => $rule_index
-						, USER_ATTRIBUTE => $2
+						# handle node user attribute
+						
+						# return a hash
+							{
+							  NAME => $1
+							, RULE_INDEX => $rule_index
+							, USER_ATTRIBUTE => $2
+							}
 						}
-
+					else
+						{
+						# return a hash
+							{
+							  NAME => $_
+							, RULE_INDEX => $rule_index
+							}
+						}
 					}
 				else
 					{
@@ -260,18 +358,27 @@ for(my $rule_index = 0 ; $rule_index < @$dependency_rules ; $rule_index++)
 				$rule_type .= '[BO]' if($builder_override) ;
 				$rule_type .= '[S]'  if(defined $dependency_rules->[$rule_index]{NODE_SUBS}) ;
 				
-				my @dependency_names = map {$_->{NAME} ;} @dependencies ;
+				my @dependency_names = map {$_->{NAME} ;} grep {'' eq ref $_->{NAME}} @dependencies ;
 				
-				my $dependency_info = "$node_name ${node_type}has dependencies [@dependency_names], rule $rule_index:$rule_info:$rule_type" ;
-				if(defined $tree->{__PBS_CONFIG}{DEBUG_DISPLAY_DEPENDENCY_REGEX})
+				
+				my $forced_trigger = '' ;
+				if(grep {'PBS_FORCE_TRIGGER' eq ref $_->{NAME}} @dependencies) # use List::Utils::Any
 					{
-					# the dependers will be indented, indent the result under them.
-					PrintInfo("      $dependency_info.\n") ;
+					$forced_trigger = 'FORCED_TRIGGER! ' ;
+					}
+					
+				my $dependency_info ;
+				if(defined $pbs_config->{DEBUG_DISPLAY_DEPENDENCIES_LONG})
+					{
+					$dependency_info = "'$node_name' ${node_type}${forced_trigger} rule $rule_index:$rule_info:$rule_type gives dependencies:\n"
+								. "      " . join("\n      ", map {"'$_'"} @dependency_names) ;
 					}
 				else
 					{
-					PrintInfo("   $dependency_info.\n") ;
+					$dependency_info = "'$node_name' ${node_type}${forced_trigger}has dependencies [@dependency_names], rule $rule_index:$rule_info:$rule_type" ;
 					}
+					
+				PrintInfo("   $dependency_info\n") ;
 					
 				PrintWithContext
 					(
@@ -279,7 +386,7 @@ for(my $rule_index = 0 ; $rule_index < @$dependency_rules ; $rule_index++)
 					, 1, 2 #context  size
 					, $dependency_rules->[$rule_index]{LINE}
 					, \&INFO
-					) if defined $pbs_config->{DISPLAY_DEPENDENCY_RULE_DEFINITION} ;
+					) if defined $pbs_config->{DEBUG_DISPLAY_DEPENDENCY_RULE_DEFINITION} ;
 				}
 			}
 			
@@ -289,15 +396,33 @@ for(my $rule_index = 0 ; $rule_index < @$dependency_rules ; $rule_index++)
 		for my $dependency (@dependencies)
 			{
 			my $dependency_name = $dependency->{NAME} ;
-			
-			if($dependency_name =~ /^__PBS_FORCE_TRIGGER/)
+			if(ref $dependency_name eq 'PBS_FORCE_TRIGGER')
 				{
-				$tree->{$dependency_name} = $dependency ;
+				push @{$tree->{__PBS_FORCE_TRIGGER}}, $dependency_name ;
+				next ;
 				}
-			
+				
+			if(ref $dependency_name eq 'PBS_SYNCHRONIZE')
+				{
+				my 
+				(
+				  $unsynchronized_dependency_file_name
+				, $dependency_file_name
+				, $message_format
+				) = @$dependency_name{'SOURCE_FILE', 'DESTINATION_FILE', 'MESSAGE_FORMAT'} ;
+				
+				$tree->{__SYNCHRONIZE}{$unsynchronized_dependency_file_name} = 
+					{
+					  TO_FILE        => $dependency_file_name
+					, MESSAGE_FORMAT => $message_format
+					} ;
+					
+				next ;
+				}
+				
 			next if $dependency_name =~ /^__/ ;
 			
-			RunPluginSubs('CheckNodeName', $dependency_name, $dependency_rules->[$rule_index]) ;
+			RunPluginSubs($pbs_config, 'CheckNodeName', $dependency_name, $dependency_rules->[$rule_index]) ;
 			
 			if($node_name eq $dependency_name)
 				{
@@ -366,17 +491,15 @@ for(my $rule_index = 0 ; $rule_index < @$dependency_rules ; $rule_index++)
 # continue with single definition of dependencies 
 # and remove temporary dependency names
 #-------------------------------------------------------------------------
-my @dependencies ;
+my @dependencies = () ;
 for my $dependency_name (keys %$tree)
 	{
-	push @dependencies, $tree->{$dependency_name} unless($dependency_name =~ /^__/) ;
+	if(($dependency_name !~ /^__/) && ('' eq ref $tree->{$dependency_name}{NAME}))
+		{
+		push @dependencies, $tree->{$dependency_name}  ;
+		}
 	}
-	
-for (keys %$tree)
-	{
-	delete $tree->{$_} if $_ !~ /^__/ ;
-	}
-	
+
 #-------------------------------------------------------------------------
 # handle IGNORE_LOCAL_RULES, ...
 #-------------------------------------------------------------------------
@@ -388,11 +511,7 @@ if(@sub_pbs)
 			{
 			PrintWarning
 				(
-				DumpTree
-					(
-					  \@sub_pbs
-					, "Sub Pbs rule:"
-					)
+				DumpTree(\@sub_pbs, "Sub Pbs rule:")
 				) ;
 				
 			PrintWarning("Forces removal of locally defined dependencies:\n") ;
@@ -408,6 +527,7 @@ if(@sub_pbs)
 			for my $dependency (keys %$tree)
 				{
 				next if $dependency =~ /^__/ ;
+
 				delete $tree->{$dependency} ;
 				
 				unless(exists $inserted_nodes->{$dependency}{__LINKED})
@@ -554,16 +674,23 @@ for my $dependency (@dependencies)
 	if(exists $inserted_nodes->{$dependency_name})
 		{
 		# the dependency already exists within the tree (inserted through another node)
-		# do some sanity checking
-		#~ PrintDebug DumpTree($inserted_nodes->{$dependency_name}, '' , MAX_DEPTH => 3) ;
+		$tree->{$dependency_name} = $inserted_nodes->{$dependency_name} ;
+		$tree->{$dependency_name}{__LINKED}++ ;
 		
+		my $display_linked_node_info = 0 ;
+		$display_linked_node_info++ if($pbs_config->{DEBUG_DISPLAY_DEPENDENCIES} && (! $pbs_config->{NO_LINK_INFO})) ;
+		
+		my $rule_info =  $dependency_rules->[$rule_index]{NAME} . $dependency_rules->[$rule_index]{ORIGIN} ;
+							
+		my $linked_node_info = "      Linking '$dependency_name'" ;
+		$linked_node_info   .= " (from $inserted_nodes->{$dependency_name}{__INSERTED_AT}{INSERTION_FILE}" ;
+		$linked_node_info   .= " -> $inserted_nodes->{$dependency_name}{__INSERTED_AT}{INSERTION_RULE})\n" ;
+		
+		$linked_node_info   .= "         Above node is not depended yet!\n" unless (exists $inserted_nodes->{$dependency_name}{__DEPENDED}) ;
+			
 		if($inserted_nodes->{$dependency_name}{__INSERTED_AT}{INSERTION_FILE} ne $Pbsfile)
 			{
-			if(defined $pbs_config->{DEBUG_NO_EXTERNAL_LINK})
-				{
-				PrintError("--no_external_link switch specified, stop.\n") ;
-				die ;
-				}
+			die ERROR("--no_external_link switch specified, stop.\n") if(defined $pbs_config->{DEBUG_NO_EXTERNAL_LINK}) ;
 				
 			unless($pbs_config->{NO_LOCAL_MATCHING_RULES_INFO})
 				{
@@ -577,49 +704,27 @@ for my $dependency (@dependencies)
 				
 				if(exists $inserted_nodes->{$dependency_name}{__DEPENDED} && @local_rules_matching)
 					{
-					my $rule_info =  $dependency_rules->[$rule_index]{NAME}
-										. $dependency_rules->[$rule_index]{ORIGIN} ;
-										
-					PrintWarning
-						(
-						  "While checking '$node_name' at rule '$rule_info' :\n"
-						. "   Existing node '$dependency_name' from:"
-						. "$inserted_nodes->{$dependency_name}{__INSERTED_AT}{INSERTION_FILE}"
-						. "->$inserted_nodes->{$dependency_name}{__INSERTED_AT}{INSERTION_RULE}"
-						. " is already depended but has local rules matching in '$Pbsfile':\n"
-						) ;
+					my $local_matching_rules_warning = '' ;
 					
 					for my $matching_rule_index (@local_rules_matching)
 						{
-						$rule_info =  $dependency_rules->[$matching_rule_index]{NAME}
-											. $dependency_rules->[$matching_rule_index]{ORIGIN} ;
-											
-						PrintWarning("      $matching_rule_index:$rule_info\n") ;
+						$local_matching_rules_warning .=
+							"            $matching_rule_index:"
+							. $dependency_rules->[$matching_rule_index]{NAME}
+							. $dependency_rules->[$matching_rule_index]{ORIGIN}
+							. "\n" ;
 						}
 						
+					if($local_matching_rules_warning ne '')
+						{
+						$linked_node_info .= "         Ignoring local matching rules from '$Pbsfile':\n$local_matching_rules_warning" ;
+						$display_linked_node_info++ ;
+						}
 					}
 				}
 			}
 			
-		if($pbs_config->{DEBUG_DISPLAY_DEPENDENCIES} && (! $pbs_config->{NO_LINK_INFO}))
-			{
-			my $rule_info =  $dependency_rules->[$rule_index]{NAME}
-								. $dependency_rules->[$rule_index]{ORIGIN} ;
-								
-			PrintWarning
-				(
-				"In Pbsfile : $Pbsfile, while at rule $rule_info, node '$node_name'\n"
-				. "    '$dependency_name' already inserted @ $inserted_nodes->{$dependency_name}{__INSERTED_AT}{INSERTION_FILE}:"
-				. "$inserted_nodes->{$dependency_name}{__INSERTED_AT}{INSERTION_RULE}, Linking.\n"
-				) ;
-				
-			PrintWarning("    Above node is not depended yet!\n") unless (exists $inserted_nodes->{$dependency_name}{__DEPENDED}) ;
-			
-			#~ warn DumpTree($inserted_nodes->{$dependency_name}, "node '$dependency_name' linked but not depended:") ;
-			}
-		
-		$tree->{$dependency_name} = $inserted_nodes->{$dependency_name} ;
-		$tree->{$dependency_name}{__LINKED}++ ;
+		PrintWarning $linked_node_info if $display_linked_node_info ;
 		}
 	else
 		{
@@ -677,22 +782,85 @@ for my $dependency (@dependencies)
 		}
 	}
 	
-if(0 == $has_dependencies)
+if($has_matching_non_subpbs_rules)
 	{
-	if($pbs_config->{DEBUG_DISPLAY_DEPENDENCIES} && $node_name_matches_ddr)
+	if(@sub_pbs)
 		{
-		if($node_name !~/^__/)
+		PrintError "In Pbsfile : $Pbsfile, $node_name has locally matching rules and matching subpbs definition:\n" ;
+		for my $dependency (keys %$tree)
 			{
-			PrintInfo
+			next if $dependency =~ /^__/ ;
+			PrintError("\t$dependency\n") ;
+			}
+			
+		PrintError(DumpTree(\@sub_pbs, "And Sub Pbs:")) ;
+			
+		Carp::croak ;
+		}
+		
+	# a node can be inserted from diffrent pbs file, still the result should be the same
+	# if the rules applied to the node are identical, we thus only remeber the pbsfile whith matching rules
+	$tree->{__DEPENDING_PBSFILE} = PBS::Digest::GetFileMD5($Pbsfile) ;
+	$tree->{__LOAD_PACKAGE} = $load_package;
+	#~ $tree->{__DEPENDING_PACKAGE} = $load_package;
+	
+	for my $dependency (keys %$tree)
+		{
+		next if $dependency =~ /^__/ ;
+		
+		# keep parent relationship
+		my $key_name = $node_name . ': ' ;
+		
+		for my $rule (@{$dependency_rules{$dependency}})
+			{
+			$key_name .= $rule->[0] . ' ' . $rule->[1] ;
+			}
+		
+		$tree->{$dependency}{__DEPENDENCY_TO}{$key_name} = $tree->{__DEPENDENCY_TO} ;
+		
+		# help user keep sanity by revealing some of the depend history
+		if
+			(
+			   $tree->{$dependency}{__INSERTED_AT}{INSERTION_FILE} eq $Pbsfile
+			&& defined $tree->{$dependency}{__DEPENDED_AT}
+			&& $tree->{$dependency}{__DEPENDED_AT} ne $Pbsfile
+			)
+			{
+			PrintWarning
 				(
-				"$node_name has no locally defined dependencies "
-				. "(rules from package '$package_alias' loaded from '"
-				. $pbs_config->{PBSFILE}
-				. "').\n"
+				  "Node '$dependency' inserted at rule: "
+				. "$tree->{$dependency}{__INSERTED_AT}{INSERTION_RULE} "
+				. " [Pbsfile: $tree->{$dependency}{__INSERTED_AT}{INSERTION_FILE}]"
+				. " has been depended in Pbsfile: '$tree->{$dependency}{__DEPENDED_AT}'.\n"
 				) ;
+			
+			#~ warn DumpTree($tree->{$dependency}, "node depended elsewhere:") ;
+			
+			my $ignored_rules ='' ;
+			
+			for(my $matching_rule_index = 0 ; $matching_rule_index < @$dependency_rules ; $matching_rule_index++)
+				{
+				my ($dependency_result) = $dependency_rules->[$matching_rule_index]{DEPENDER}->($dependency, $config, $tree->{$dependency}, $inserted_nodes) ;
+				if($dependency_result->[0])
+					{
+					my $rule_info =  $dependency_rules->[$matching_rule_index]{NAME}
+										. $dependency_rules->[$matching_rule_index]{ORIGIN} ;
+										
+					$ignored_rules .= "\t$matching_rule_index:$rule_info\n" ;
+					}
+				}
+				
+			PrintWarning("Ignoring local matching rules from '$Pbsfile':\n$ignored_rules") if $ignored_rules ne '' ;
+			}
+			
+		unless(exists $tree->{$dependency}{__DEPENDED})
+			{
+			CreateDependencyTree($Pbsfile, $package_alias, $load_package, $pbs_config, $tree->{$dependency}, $config, $inserted_nodes, $dependency_rules) ;
 			}
 		}
-	
+	}
+else
+	{
 	if(@sub_pbs)
 		{
 		if(@sub_pbs != 1)
@@ -713,12 +881,14 @@ if(0 == $has_dependencies)
 		$alias_message = "aliased as '$sub_pbs_hash->{ALIAS}'" if(defined $sub_pbs_hash->{ALIAS}) ;
 		
 		$sub_pbs_name = LocatePbsfile($pbs_config, $Pbsfile, $sub_pbs_name, $sub_pbs[0]{RULE}) ;
+		$sub_pbs_hash->{PBSFILE_LOCATED} = $sub_pbs_name ;
 		
 		unless(defined $pbs_config->{NO_SUBPBS_INFO})
 			{
 			if(defined $pbs_config->{SUBPBS_FILE_INFO})
 				{
-				PrintWarning("[$PBS::PBS::pbs_runs/$PBS::PBS::Pbs_call_depth] Depending '$node_name' $alias_message with sub pbs '$sub_pbs_package:$sub_pbs_name'.\n") ;
+				my $node_info = "inserted at '$inserted_nodes->{$node_name}->{__INSERTED_AT}{INSERTION_RULE}'" ;
+				PrintWarning("[$PBS::PBS::pbs_runs/$PBS::PBS::Pbs_call_depth] Depending '$node_name' $alias_message, $node_info, with sub pbs '$sub_pbs_package:$sub_pbs_name'.\n") ;
 				}
 			else
 				{
@@ -771,27 +941,7 @@ if(0 == $has_dependencies)
 				, $tree_name
 				, $sub_pbs_config->{PBS_COMMAND}
 				) ;
-						
-		#attempt to micro warp, July 2005 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		#unlocated
-		unless(exists $used_pbsfiles{$sub_pbs_name})
-			{
-			$used_pbsfiles{$sub_pbs_name} = {} ;
-			}
 			
-		$used_pbsfiles{$Pbsfile}{$sub_pbs_name} = $used_pbsfiles{$sub_pbs_name} ;
-		
-		#locate
-		unless(exists $used_pbsfiles_located{$sub_pbs_load_package})
-			{
-			$used_pbsfiles_located{$sub_pbs_load_package} = {} ;
-			}
-			
-		#~ $used_pbsfiles_located{$sub_pbs_load_package}{$sub_pbs_name} = PBS::Digest::GetFileMD5($sub_pbs_name) ;
-		
-		$used_pbsfiles_located{$load_package}{$sub_pbs_load_package} = $used_pbsfiles_located{$sub_pbs_load_package} ;
-		#attempt to micro warp, July 2005 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		
 		# keep this node insertion info
 		$sub_tree->{$sub_node_name}{__INSERTED_AT}{ORIGINAL_INSERTION_DATA} =  $tree->{__INSERTED_AT} ;
 		
@@ -817,80 +967,29 @@ if(0 == $has_dependencies)
 		
 		#~warn Data::Dumper->Dump($sub_tree, "sub_tree:\n") ;
 		}
-	}
-else
-	{
-	if(@sub_pbs)
+	else
 		{
-		PrintError "In Pbsfile : $Pbsfile, $node_name has locally defined dependencies and matching subpbs definition:\n" ;
-		for my $dependency (keys %$tree)
+		if(0 == $has_dependencies && $pbs_config->{DEBUG_DISPLAY_DEPENDENCIES} && $node_name_matches_ddr)
 			{
-			next if $dependency =~ /^__/ ;
-			PrintError("\t$dependency\n") ;
-			}
+			next if $node_name =~ /^__/ ;
 			
-		PrintError(DumpTree(\@sub_pbs, "And Sub Pbs:")) ;
+			my $dependency_info = '' ;
 			
-		Carp::croak ;
-		}
-		
-	for my $dependency (keys %$tree)
-		{
-		next if $dependency =~ /^__/ ;
-		
-		# keep parent relationship
-		my $key_name = $node_name . ': ' ;
-		
-		for my $rule (@{$dependency_rules{$dependency}})
-			{
-			$key_name .= $rule->[0] . ' ' . $rule->[1] ;
-			}
-		
-		$tree->{$dependency}{__DEPENDENCY_TO}{$key_name} = $tree->{__DEPENDENCY_TO} ;
-		
-		# help user keep sanity by revealing some of the depend history
-		if
-			(
-			   $tree->{$dependency}{__INSERTED_AT}{INSERTION_FILE} eq $Pbsfile
-			&& defined $tree->{$dependency}{__DEPENDED_AT}
-			&& $tree->{$dependency}{__DEPENDED_AT} ne $Pbsfile
-			)
-			{
-			PrintWarning
-				(
-				  "Node '$dependency' inserted at rule: "
-				. "$tree->{$dependency}{__INSERTED_AT}{INSERTION_RULE} "
-				. " [Pbsfile: $tree->{$dependency}{__INSERTED_AT}{INSERTION_FILE}]"
-				. " has been depended in Pbsfile: '$tree->{$dependency}{__DEPENDED_AT}'.\n"
-				) ;
-			
-			#~ warn DumpTree($tree->{$dependency}, "node depended elsewhere:") ;
-			
-			my $ignored_rules ='' ;
-			
-			for(my $matching_rule_index = 0 ; $matching_rule_index < @$dependency_rules ; $matching_rule_index++)
+			if(@{$tree->{__MATCHING_RULES}})
 				{
-				my ($dependency_result) = $dependency_rules->[$matching_rule_index]{DEPENDER}->($dependency, $config, $tree->{$dependency}, $inserted_nodes) ;
-				if($dependency_result->[0])
-					{
-					my $rule_info =  $dependency_rules->[$matching_rule_index]{NAME}
-										. $dependency_rules->[$matching_rule_index]{ORIGIN} ;
-										
-					$ignored_rules .= "\t$matching_rule_index:$rule_info\n" ;
-					}
+				$dependency_info = "   '$node_name' has no locally defined dependencies" ;
+				}
+			else
+				{
+				$dependency_info = "   '$node_name' wasn't depended" ;
 				}
 				
-			PrintWarning("Local rules from '$Pbsfile' are ignored.\n$ignored_rules") if $ignored_rules ne '' ;
-			}
-			
-		unless(exists $tree->{$dependency}{__DEPENDED})
-			{
-			CreateDependencyTree($Pbsfile, $package_alias, $load_package, $pbs_config, $tree->{$dependency}, $config, $inserted_nodes, $dependency_rules) ;
+			PrintInfo "$dependency_info (rules from '$pbs_config->{PBSFILE}').\n" ;
 			}
 		}
 	}
 	
-if($tree->{__IMMEDIATE_BUILD})
+if($tree->{__IMMEDIATE_BUILD}  && ! exists $tree->{__BUILD_DONE})
 	{
 	PrintInfo2("** Immediate build of node $node_name **\n") ;
 	my(@build_sequence, %trigged_files) ;
@@ -907,6 +1006,8 @@ if($tree->{__IMMEDIATE_BUILD})
 		, \@build_sequence
 		, \%trigged_files
 		) ;
+		
+	RunPluginSubs($pbs_config, 'PostDependAndCheck', $pbs_config, $tree, $inserted_nodes, \@build_sequence, $tree) ;
 	
 	if($pbs_config->{DO_BUILD})
 		{
@@ -919,7 +1020,7 @@ if($tree->{__IMMEDIATE_BUILD})
 			
 		if($build_result == BUILD_SUCCESS)
 			{
-			PrintInfo2("** Immediate build of node '$node_name' Done **\n") ;
+			#~ PrintInfo2("** Immediate build of node '$node_name' Done **\n") ;
 			}
 		else
 			{
@@ -963,7 +1064,7 @@ my $info = $pbs_config->{ADD_ORIGIN} ? "rule '$rule->{NAME}' at '$rule->{FILE}\:
 my $source_directories = $pbs_config->{SOURCE_DIRECTORIES} ;
 my $sub_pbs_name_stem ;
 
-if(File::Spec->file_name_is_absolute($sub_pbs_name))
+if(file_name_is_absolute($sub_pbs_name))
 	{
 	PrintWarning "Using absolute subpbs: '$sub_pbs_name' $info.\n" ;
 	}

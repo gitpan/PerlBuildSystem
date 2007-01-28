@@ -36,6 +36,14 @@ use vars qw($VERSION @ISA @EXPORT) ;
 		META_RULE
 		META_SLAVE
 		IMMEDIATE_BUILD
+		untyped
+		virtual
+		forced
+		post_depend
+		creator
+		meta_rule
+		meta_slave
+		immediate_build
 		
 		BUILD_SUCCESS
 		BUILD_FAILED
@@ -54,9 +62,13 @@ use vars qw($VERSION @ISA @EXPORT) ;
 		
 		CONFIG_ENVIRONEMENT_VARIABLE_FLAG_ERROR
 		CONFIG_ENVIRONEMENT_VARIABLE_FLAG_SUCCESS
+		
+		WATCH_TYPE_SEPARATOR
+		WATCH_TYPE_FILE
+		WATCH_TYPE_DIRECTORY
 		) ;
 
-$VERSION = '0.07' ;
+$VERSION = '0.08' ;
 
 # indexes for data stored in %loaded_packages in PBS.pm
 use constant PBSFILE            => 0 ;
@@ -72,14 +84,22 @@ use constant NEED_REBUILD => 1 ;
 
 # rule types --------------------------------------------------------
 use constant UNTYPED            => '__UNTYPED' ;
+use constant untyped            => '__UNTYPED' ;
 use constant VIRTUAL            => '__VIRTUAL' ;
+use constant virtual            => '__VIRTUAL' ;
 use constant LOCAL              => '__LOCAL' ;
 use constant FORCED             => '__FORCED' ;
+use constant forced             => '__FORCED' ;
 use constant CREATOR            => '__CREATOR' ;
+use constant creator            => '__CREATOR' ;
 use constant POST_DEPEND        => '__POST_DEPEND' ;
+use constant post_depend        => '__POST_DEPEND' ;
 use constant META_RULE          => '__META_RULE' ;
+use constant meta_rule          => '__META_RULE' ;
 use constant META_SLAVE         => '__META_SLAVE' ;
+use constant meta_slave         => '__META_SLAVE' ;
 use constant IMMEDIATE_BUILD    => '__IMMEDIATE_BUILD' ;
+use constant immediate_build    => '__IMMEDIATE_BUILD' ;
 
 #builders results ---------------------------------------------------------------------
 
@@ -111,6 +131,10 @@ use constant CONFIG_PRF_FLAG_ERROR => 3 ;
 use constant CONFIG_ENVIRONEMENT_VARIABLE_FLAG_ERROR   => 0 ;
 use constant CONFIG_ENVIRONEMENT_VARIABLE_FLAG_SUCCESS => 1 ;
 
+#file watcher -------------------------------------------------------------------------------
+use constant WATCH_TYPE_SEPARATOR => '__PBS__WATCH_TYPE__' ;
+use constant WATCH_TYPE_FILE      => 1 ; # system is able to watch individual files, typically linux with inotify
+use constant WATCH_TYPE_DIRECTORY => 2 ; # system can only watch directories, typically windows
 
 #-------------------------------------------------------------------------------
 1 ;

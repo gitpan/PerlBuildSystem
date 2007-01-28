@@ -1,2 +1,6 @@
--build_directory nadim_out
 
+AddCommandLineSwitches('-build_directory nadim_out') ;
+
+#------------------------------------------------------------------------
+
+1;

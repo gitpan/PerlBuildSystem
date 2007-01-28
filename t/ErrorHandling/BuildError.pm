@@ -30,7 +30,7 @@ _EOF_
     $t->command_line_flags('--post_pbs=post_pbs.pl');
 
     $t->write_pbsfile(<<"_EOF_");
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
     PbsUse('Rules/C');
 
     AddRule 'test-c', [ 'test-c$t::PBS::_exe' => '2.o', 'main.o' ] =>

@@ -11,6 +11,8 @@ This document is  a work in progress.
 
 =head3 Planning your work
 
+=head3 Hierarchical builds
+
 =head3 Configuration
 
 =head3 Separating your rules
@@ -37,6 +39,8 @@ be so complex to handle in a build system. More surprizing were the , rather dum
 =head3 Generated C files
 
 =head3 Swig wrappers
+
+=head3 Flex
 
 =cut
 

@@ -115,6 +115,8 @@ sub dependent_regex : Test(2) {
 # Write files
     $t->write_pbsfile(<<'_EOF_');
     ExcludeFromDigestGeneration('in-files' => qr/\.in$/);
+    #ExcludeFromDigestGeneration('node that fails' => qr/\$undefined_variable$/);
+    
     AddRule 'second', [ 'file.target' => 'subdir/file.intermediate' ] =>
 	'cp %DEPENDENCY_LIST %FILE_TO_BUILD';
     AddRule 'dependent regex', [qr/\.intermediate$/ => '$path/$basename$ext.in',
@@ -144,12 +146,9 @@ _EOF_
     $t->write('subdir/file.intermediate.in', 'file contents');
 
 # Build
-    $t->build;
-# $t->dump_stdout_stderr ;
-#~ $t->generate_test_snapshot_and_exit();
-    isnt($?, 0, 'Exit status indicating error');
+	$t->build_test_fail;
     my $stderr = $t->stderr;
-    like($stderr, qr|\$undefined_variable : BUILD_FAILED : No matching rule\.\n|, 'Correct error message in output');
+    like($stderr, qr|\$undefined_variable' : BUILD_FAILED : No matching rule\.\n|, 'Correct error message in output');
 }
 
 sub creator_sub : Test(2) {
@@ -267,6 +266,26 @@ _EOF_
     $t->test_target_contents('file contents');
 }
 
+sub no_dependencies2 : Test(4) {
+# Write files
+    $t->write_pbsfile(<<'_EOF_');
+    ExcludeFromDigestGeneration('in-files' => qr/\.in$/);
+    AddRule 'no dependencies', [ 'file.target' => undef ] =>
+	'cat file.in > %FILE_TO_BUILD';
+_EOF_
+    $t->write('file.in', 'file contents');
+
+# Build
+    $t->build_test;
+    $t->test_target_contents('file contents');
+
+# Modify the in-file and rebuild
+    $t->write('file.in', 'file2 contents');
+
+    $t->build_test;
+    $t->test_target_contents('file contents');
+}
+
 sub multiple_rules : Test(8) {
 # Write files
     $t->write_pbsfile(<<'_EOF_');
@@ -290,6 +309,7 @@ _EOF_
     $t->write('file.in', 'file3 contents');
 
     $t->build_test;
+#~ $t->generate_test_snapshot_and_exit() ;
     $t->test_target_contents('file3 contentsfile2 contents');
 
 # Modify the second file and rebuild

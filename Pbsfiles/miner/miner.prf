@@ -1,7 +1,9 @@
 
-# switches
--f
+AddTargets('all') ;
 
-# targets
-all
+AddCommandLineSwitches('-f') ;
+
+#------------------------------------------------------------------------
+
+1;
 

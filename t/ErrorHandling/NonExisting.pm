@@ -24,7 +24,7 @@ sub setup : Test(setup) {
 sub non_existing_targets : Test(1) {
 # Write file
     $t->write_pbsfile(<<'_EOF_');
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
     PbsUse('Rules/C');
 
     AddRule 'test-c', [ 'wrong-target' => 'main.o' ] =>
@@ -40,7 +40,7 @@ _EOF_
 sub non_existing_files : Test(1) {
 # Write file
     $t->write_pbsfile(<<'_EOF_');
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
     PbsUse('Rules/C');
 
     AddRule 'test-c', [ 'test-c' => 'main.o' ] =>

@@ -31,6 +31,105 @@ use PBS::PBSConfig ;
 
 #-------------------------------------------------------------------------------
 
+my $check_dependencies_at_build_time_node_checked = 0 ;
+my $check_dependencies_at_build_time_node_skipped = 0 ;
+
+sub GetBuildTimeSkippStatistics
+{
+my $skipp_ratio = 'N/A' ;
+
+if($check_dependencies_at_build_time_node_checked)
+	{
+	$skipp_ratio = int(($check_dependencies_at_build_time_node_skipped * 100) / $check_dependencies_at_build_time_node_checked) ;
+	}
+	
+return
+	({
+	  CHECK_DEPENDENCIES => $check_dependencies_at_build_time_node_checked
+	, SKIPPED_BUILDS     => $check_dependencies_at_build_time_node_skipped
+	, SKIPP_RATIO        => $skipp_ratio
+	}) ;
+}
+
+sub NodeNeedsRebuild
+{
+my ($node) = @_ ;
+
+$check_dependencies_at_build_time_node_checked++ ;
+
+# virtual node have no digests so we can't check it
+return(0) if exists $node->{__VIRTUAL} ;
+
+my ($rebuild, $reason) = PBS::Digest::IsNodeDigestDifferent($node) ;
+
+my ($dependencies, $triggered_dependencies) = GetNodeDependencies($node) ;
+
+for my $triggered_dependency (@$triggered_dependencies)
+	{
+	# triggered source dependencies always trigger even if they have the same md5
+	my $dependency_is_generated = PBS::Digest::IsDigestToBeGenerated
+					(
+					$node->{$triggered_dependency}{__LOAD_PACKAGE}
+					, $node->{$triggered_dependency}
+					) ;
+	
+	unless($dependency_is_generated)
+		{
+		$rebuild++ ;
+		last ;
+		}
+	}
+	
+
+if($rebuild)
+	{
+	# build normally
+	}
+else
+	{
+	$check_dependencies_at_build_time_node_skipped++ ;
+	
+	if((! $PBS::Shell::silent_commands))
+		{
+		PrintWarning "\tNode doesn't need to be build.\n" ;
+		}
+		
+	# remember that we are using the previously generated digest.
+	# the digest is in a file but this node is in memory
+	# if this node is newly created (not linked from a warp tree)
+	# it doesn't have an MD5 which is used in the parent node
+	
+	# if we don't need to be rebuild, the previous md5 is still valid
+	
+	if(exists $node->{__VIRTUAL})
+		{
+		$node->{__MD5} = 'VIRTUAL' ;
+		}
+	else
+		{
+		if(defined (my $current_md5 = GetFileMD5($node->{__BUILD_NAME})))
+			{
+			$node->{__MD5} = $current_md5 ;
+			}
+		else
+			{
+			die ERROR("Can't open '$node->{__BUILD_NAME}' to compute MD5 digest: $!") ;
+			}
+		}
+	}
+
+return($rebuild) ;
+
+# test when one of the dependencies is virtual, all dependencies are virtual
+# test when the pbsfile has changed
+# test when apbs module has changed
+# test when config has changed
+# what if the builder is a perl sub that has changed?
+
+}
+
+#-------------------------------------------------------------------------------
+
 sub BuildNode
 {
 my $file_tree      = shift ;
@@ -40,6 +139,9 @@ my $inserted_nodes = shift ;
 my $node_build_sequencer_info = shift ;
 
 my $t0 = [gettimeofday];
+
+use Data::TreeDumper ;
+#~ print DumpTree($file_tree, $build_name, MAX_DEPTH => 1) ;
 
 if(defined $pbs_config->{DISPLAY_BUILD_SEQUENCER_INFO} && ! $pbs_config->{DISPLAY_NO_BUILD_HEADER})
 	{
@@ -55,58 +157,103 @@ if
 	}
 
 my ($build_result, $build_message) = (BUILD_SUCCESS, "'$build_name' successfuly built.") ;	
+my ($dependencies, $triggered_dependencies) = GetNodeDependencies($file_tree) ;
 
-my ($dependencies, $triggered_dependencies) = GetDependencies($file_tree) ;
-my $rules_with_builders = ExtractRulesWithBuilder($file_tree) ;
-
-if(@$rules_with_builders)
+if($pbs_config->{CHECK_DEPENDENCIES_AT_BUILD_TIME} && (! NodeNeedsRebuild($file_tree)))
 	{
-	# choose last builder if multiple Builders
-	my $rule_used_to_build = $rules_with_builders->[-1] ;
-	
-	if(@{$pbs_config->{DISPLAY_BUILD_INFO}})
-		{
-		($build_result, $build_message) = (BUILD_FAILED, "Builder skipped because of --bi.") ;
-		}
-	else
-		{
-		($build_result, $build_message) = RunRuleBuilder
-							(
-							  $pbs_config
-							, $rule_used_to_build
-							, $file_tree
-							, $dependencies
-							, $triggered_dependencies
-							, $inserted_nodes
-							) ;
-		}
+	# nothing to do
+	($build_result, $build_message) = (BUILD_SUCCESS, "'$build_name' successfuly skipped build.") ;	
 	}
 else
 	{
-	my $reason ; 
+	my $rules_with_builders = ExtractRulesWithBuilder($file_tree) ;
 	
-	if(@{$file_tree->{__MATCHING_RULES}})
+	if(@$rules_with_builders)
 		{
-		#~ $reason .= "No Builder for '$file_tree->{__NAME}'.\n" ; 
-		$reason .= "No Builder.\n" ; 
+		# choose last builder if multiple Builders
+		my $rule_used_to_build = $rules_with_builders->[-1] ;
+		
+		if(@{$pbs_config->{DISPLAY_BUILD_INFO}})
+			{
+			($build_result, $build_message) = (BUILD_FAILED, "Builder skipped because of --bi.") ;
+			}
+		else
+			{
+			if(exists $file_tree->{__BUILD_DONE})
+				{
+				PrintInfo "Build is already done: $file_tree->{__BUILD_DONE}\n" ;
+				}
+			else
+				{
+				($build_result, $build_message) 
+					= RunRuleBuilder
+						(
+						  $pbs_config
+						, $rule_used_to_build
+						, $file_tree
+						, $dependencies
+						, $triggered_dependencies
+						, $inserted_nodes
+						) ;
+				}
+			}
 		}
 	else
 		{
-		#~ $reason .= "No matching rule for '$file_tree->{__NAME}'.\n"  ;
-		$reason .= "No matching rule.\n"  ;
+		my $reason ; 
+		
+		if(@{$file_tree->{__MATCHING_RULES}})
+			{
+			#~ $reason .= "No Builder for '$file_tree->{__NAME}'.\n" ; 
+			$reason .= "No Builder.\n" ; 
+			}
+		else
+			{
+			#~ $reason .= "No matching rule for '$file_tree->{__NAME}'.\n"  ;
+			$reason .= "No matching rule.\n"  ;
+			}
+		
+		# show why the node was to be build
+		for my $triggered_dependency_data (@{$file_tree->{__TRIGGERED}})
+			{
+			$reason.= "\t$triggered_dependency_data->{NAME} ($triggered_dependency_data->{REASON})\n" ;
+			}
+			
+		$file_tree->{__BUILD_FAILED} = $reason ;
+		
+		($build_result, $build_message) = (BUILD_FAILED, $reason) ;
 		}
 	
-	# show why the node was to be build
-	for my $triggered_dependency_data (@{$file_tree->{__TRIGGERED}})
+	if($build_result == BUILD_SUCCESS)
 		{
-		$reason.= "\t$triggered_dependency_data->{NAME} ($triggered_dependency_data->{REASON})\n" ;
+		PBS::Digest::FlushMd5Cache($build_name) ;
+		
+		eval { PBS::Digest::GenerateNodeDigest($file_tree) ; } ;
+			
+		($build_result, $build_message) = (BUILD_FAILED, "Error Generating node digest: $@") if $@ ;
 		}
 		
-	$file_tree->{__BUILD_FAILED} = $reason ;
-	
-	($build_result, $build_message) = (BUILD_FAILED, $reason) ;
+	if($build_result == BUILD_SUCCESS)
+		{
+		# record MD5 while the file is still fresh in theOS  file cache
+		if(exists $file_tree->{__VIRTUAL})
+			{
+			$file_tree->{__MD5} = 'VIRTUAL' ;
+			}
+		else
+			{
+			if(defined (my $current_md5 = GetFileMD5($build_name)))
+				{
+				$file_tree->{__MD5} = $current_md5 ;
+				}
+			else
+				{
+				($build_result, $build_message) = (BUILD_FAILED, "Error Generating MD5 for '$build_name'.") ;
+				}
+			}
+		}
 	}
-
+	
 # log the build
 if(defined (my $lh = $pbs_config->{CREATE_LOG}))
 	{
@@ -124,33 +271,6 @@ if(defined (my $lh = $pbs_config->{CREATE_LOG}))
 	
 if($build_result == BUILD_SUCCESS)
 	{
-	eval { PBS::Digest::GenerateNodeDigest($file_tree) ; } ;
-		
-	($build_result, $build_message) = (BUILD_FAILED, 'Error Generating node digest.') if $@ ;
-	}
-	
-if($build_result == BUILD_SUCCESS)
-	{
-	# record MD5 while the file is still fresh in theOS  file cache
-	if(exists $file_tree->{__VIRTUAL})
-		{
-		$file_tree->{__MD5} = 'VIRTUAL' ;
-		}
-	else
-		{
-		if(defined (my $current_md5 = GetFileMD5($build_name)))
-			{
-			$file_tree->{__MD5} = $current_md5 ;
-			}
-		else
-			{
-			($build_result, $build_message) = (BUILD_FAILED, "Error Generating MD5 for '$build_name'.") ;
-			}
-		}
-	}
-	
-if($build_result == BUILD_SUCCESS)
-	{
 	if($pbs_config->{DISPLAY_BUILD_RESULT})
 		{
 		$build_message ||= '' ;
@@ -161,7 +281,7 @@ if($build_result == BUILD_SUCCESS)
 	}
 else
 	{
-	PrintError("Building $build_name : BUILD_FAILED : $build_message\n") ;
+	PrintError("Building '$build_name' : BUILD_FAILED : $build_message\n") ;
 	}
 	
 my $build_time = tv_interval ($t0, [gettimeofday]) ;
@@ -174,7 +294,7 @@ if($build_result == BUILD_SUCCESS)
 
 if($pbs_config->{TIME_BUILDERS} && ! $pbs_config->{DISPLAY_NO_BUILD_HEADER})
 	{
-	PrintInfo(sprintf("Build time: %0.2f s.\n", $build_time)) ;
+	PrintInfo(sprintf("Build time: %0.3f s.\n", $build_time)) ;
 	}
 
 return($build_result, $build_message) ;
@@ -182,23 +302,71 @@ return($build_result, $build_message) ;
 
 #-------------------------------------------------------------------------------------------------------
 
-sub GetDependencies
+sub GetNodeRepositories
+{
+my $tree = shift ;
+
+my @repository_pathes ;
+
+if($tree->{__NAME} =~ /^\./)
+	{
+	my $target_path = (File::Basename::fileparse($tree->{__NAME}))[1] ;
+	$target_path =~ s~/$~~ ;
+	
+	for my $repository (@{$tree->{__PBS_CONFIG}->{SOURCE_DIRECTORIES}})
+		{
+		push @repository_pathes, CollapsePath("$repository/$target_path") ;
+		}
+	}
+	
+return(@repository_pathes) ;
+}
+
+#-------------------------------------------------------------------------------------------------------
+
+sub GetNodeDependencies
 {
 my $file_tree = shift ;
 
-my @dependencies = map {$file_tree->{$_}{__BUILD_NAME} ;} grep { $_ !~ /^__/ ;}(keys %$file_tree) ;
-
+#~ my @dependencies = map {$file_tree->{$_}{__BUILD_NAME} ;} grep { $_ !~ /^__/ ;}(keys %$file_tree) ;
+my @dependencies ;
+for my $dependency (grep { $_ !~ /^__/ ;}(keys %$file_tree))
+	{
+	if(exists $file_tree->{$dependency}{__BUILD_NAME})
+		{
+		push @dependencies, $file_tree->{$dependency}{__BUILD_NAME};
+		}
+	else
+		{
+		push @dependencies, $dependency ;
+		}
+	}
+	
 my (@triggered_dependencies, %triggered_dependencies_build_names) ;
 
 # build a list of triggering_dependencies and weed out doublets
 for my $triggering_dependency (@{$file_tree->{__TRIGGERED}})
 	{
-	my $dependency_name = $triggering_dependency->{NAME} ;
-	
-	if($dependency_name !~ /^__/ && ! exists $triggered_dependencies_build_names{$dependency_name})
+	if('PBS_FORCE_TRIGGER' eq ref $triggering_dependency )
 		{
-		push @triggered_dependencies, $file_tree->{$dependency_name}{__BUILD_NAME} ;
-		$triggered_dependencies_build_names{$dependency_name} = $file_tree->{$dependency_name}{__BUILD_NAME} ;
+		#~ my $message = $forced_trigger->{MESSAGE} ;
+		}
+	else
+		{
+		my $dependency_name = $triggering_dependency->{NAME} ;
+		
+		next if $dependency_name =~ /^__/ ; #__SELF is triggering but is not a real dependency node
+		
+		if(exists $triggering_dependency->{__BUILD_NAME})
+			{
+			$dependency_name = $triggering_dependency->{__BUILD_NAME};
+			}
+			
+		if(! exists $triggered_dependencies_build_names{$dependency_name})
+			{
+			push @triggered_dependencies, $dependency_name  ;
+			$triggered_dependencies_build_names{$dependency_name} = $dependency_name  ;
+			}
 		}
 	}
 	
@@ -238,22 +406,6 @@ eval # rules might throw an exception
 	#DEBUG HOOK, jump into perl debugger if so asked
 	$DB::single = 1 if($PBS::Debug::debug_enabled && PBS::Debug::CheckBreakpoint(%debug_data, PRE => 1)) ;
 	
-	# evaluate repository pathes for each node build
-	if($file_tree->{__NAME} =~ /^\./)
-		{
-		my @repository_pathes ;
-		
-		my $target_path = (File::Basename::fileparse($file_tree->{__NAME}))[1] ;
-		$target_path =~ s~/$~~ ;
-		
-		for my $repository (@{$pbs_config->{SOURCE_DIRECTORIES}})
-			{
-			push @repository_pathes, CollapsePath("$repository/$target_path") ;
-			}
-			
-		$file_tree->{__CONFIG}{PBS_REPOSITORIES} = \@repository_pathes ;
-		}
-		
 	($build_result, $build_message) = $builder->
 						(
 						  $file_tree->{__CONFIG}

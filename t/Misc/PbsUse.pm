@@ -49,7 +49,8 @@ _EOF_
     $t->write('file.in', 'file contents');
 
 # Build
-    $ENV{'PBS_LIB_PATH'} .= $t::PBS::_path_separator . './';
+    $t->command_line_flags($t->command_line_flags . " --plp ./");
+	 
     $t->build_test;
     $t->test_target_contents('file contents');
 }

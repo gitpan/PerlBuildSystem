@@ -54,7 +54,7 @@ my $t0_depend = [gettimeofday];
 my $config           = { PBS::Config::ExtractConfig($config_snapshot, $config_namespaces)	} ;
 my $dependency_rules = [PBS::Rules::ExtractRules($rules, @$rules_namespaces)];
 
-RunPluginSubs('PreDepend', $pbs_config, $package_alias, $config_snapshot, $config, $source_directories, $dependency_rules) ;
+RunPluginSubs($pbs_config, 'PreDepend', $pbs_config, $package_alias, $config_snapshot, $config, $source_directories, $dependency_rules) ;
 
 PrintInfo("** Depending [$package_alias/$PBS::PBS::Pbs_call_depth] **          \n") unless $pbs_config->{DISPLAY_NO_STEP_HEADER} ;
 PrintInfo("=> Creating dependency tree for $dependency_tree->{__NAME} [$package_alias/$PBS::PBS::Pbs_call_depth]:\n") if defined $pbs_config->{DISPLAY_DEPEND_START} ;
@@ -136,7 +136,7 @@ my $t0_check = [gettimeofday];
 
 eval
 	{
-	my $nodes_checker ;
+	my $nodes_checker = RunUniquePluginSub($pbs_config, 'GetNodeChecker') ;
 	PBS::Check::CheckDependencyTree
 		(
 		  $build_node # start of the tree
@@ -148,7 +148,9 @@ eval
 		, \@build_sequence
 		, \%trigged_nodes
 		) ;
-		
+	
+	print "       \r" ;
+	
 	# check if any triggered top node has been left outside the build
 	for my $node_name (keys %$inserted_nodes)
 		{
@@ -189,7 +191,7 @@ if($pbs_config->{DISPLAY_CHECK_TIME})
 # die later if check failed (ex: cyclic tree), run visualisation plugins first
 my $check_failed = $@ ;
 
-RunPluginSubs('PostDependAndCheck', $pbs_config, $dependency_tree, $inserted_nodes, \@build_sequence, $build_node) ;
+RunPluginSubs($pbs_config, 'PostDependAndCheck', $pbs_config, $dependency_tree, $inserted_nodes, \@build_sequence, $build_node) ;
 
 #~ return(BUILD_FAILED, $check_failed) if $check_failed ;
 die $check_failed if $check_failed ;
@@ -239,6 +241,8 @@ DumpTree($dependency_tree, '', NO_OUTPUT => 1, FILTER => $node_counter) ;
 		
 PrintInfo("Number of nodes in the dependency tree: $number_of_nodes_in_the_dependency_tree nodes.\n") ;
 
+#~ PBS::Digest::FlushMd5Cache() ;
+
 my ($build_result, $build_message) ;
 
 if($pbs_config->{DO_BUILD})
@@ -274,8 +278,8 @@ else
 		}
 	}
 	
-RunPluginSubs('CreateDump', $pbs_config, $dependency_tree, $inserted_nodes, \@build_sequence, $build_node) ;
-RunPluginSubs('CreateLog', $pbs_config, $dependency_tree, $inserted_nodes, \@build_sequence, $build_node) ;
+RunPluginSubs($pbs_config, 'CreateDump', $pbs_config, $dependency_tree, $inserted_nodes, \@build_sequence, $build_node) ;
+RunPluginSubs($pbs_config, 'CreateLog', $pbs_config, $dependency_tree, $inserted_nodes, \@build_sequence, $build_node) ;
 
 return($build_result, $build_message) ;
 }

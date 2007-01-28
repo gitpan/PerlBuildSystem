@@ -108,7 +108,7 @@ PBSFILE:         $pbs_config->{DATA}{PBSFILE}
 #-------------------
 EOH
 	
-	$body .= TreeDumper
+	$body .= Data::TreeDumper::TreeDumper
 					(
 					$pbs_config->{DATA}
 					,	{
@@ -181,7 +181,7 @@ EOH
 	my $triggers ;
 	if($node->{__TRIGGERED})
 		{
-		$triggers = TreeDumper
+		$triggers = Data::TreeDumper::TreeDumper
 						(
 						$node->{__TRIGGERED}
 						,	{

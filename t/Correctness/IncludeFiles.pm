@@ -33,7 +33,7 @@ _EOF_
 }
 
 my $file_pbsfile1 = <<"_EOF_";
-PbsUse('Configs/gcc');
+PbsUse('Configs/Compilers/gcc');
 PbsUse('Rules/C');
 
 AddRule 'test-c', [ 'test-c$t::PBS::_exe' => 'main.o' ] =>
@@ -109,7 +109,7 @@ sub include_path : Test(6) {
     $t->write_pbsfile(<<"_EOF_");
     AddConfigTo 'BuiltIn', 'CFLAGS_INCLUDE' =>   " -I subdir";
     
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
     PbsUse('Rules/C');
 
     AddRule 'test-c', [ 'test-c$t::PBS::_exe' => 'main.o' ] =>
@@ -140,7 +140,7 @@ sub include_path_two_include_files_with_the_same_name : Test(8) {
     AddConfigTo 'BuiltIn', 'CFLAGS_INCLUDE' =>   " -I subdir_b"
 	                                       . " -I subdir_a" ;
     
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
     PbsUse('Rules/C');
 
     AddRule 'test-c', [ 'test-c$t::PBS::_exe' => 'main.o' ] =>
@@ -238,7 +238,7 @@ _EOF_
 sub two_c_files_two_include_files : Test(14) {
 # Write files
     $t->write_pbsfile(<<"_EOF_");
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
     PbsUse('Rules/C');
 
     AddRule 'test-c', [ 'test-c$t::PBS::_exe' => '1.o', '2.o' ] =>

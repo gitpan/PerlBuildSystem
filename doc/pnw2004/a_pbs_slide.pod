@@ -57,6 +57,8 @@ L<http://dapfy.bei.t-online.de/make.pl/>
 
 =item * Fundings
 
+=item * Sudden stop
+
 =back
 
 
@@ -111,7 +113,7 @@ L<http://dapfy.bei.t-online.de/make.pl/>
 
 =item * Evenly sized ears
 
-=item * Sympathetic looks
+=item * Sympathetics look
 
 =cut
 
@@ -124,10 +126,6 @@ L<http://dapfy.bei.t-online.de/make.pl/>
 =item * Not for complex systems
 
 L<http://www.canb.auug.org.au/~millerp/rmch/recu-make-cons-harm.html>
-
-=item * make veryclean
-
-=item * multiple make synchronizing
 
 =item * Cryptic syntax
 
@@ -170,6 +168,8 @@ L<http://www.theserverside.com/news/thread.jsp?thread_id=23426>
 =item * Cons
 
 =item * Cmake
+
+=item * Scons
 
 =item * MakePP
 
@@ -298,7 +298,7 @@ Many of the programs listed above use Perl.
 
 =item * make.pl (RIP)
 
-=item * Cons (RIP?)
+=item * Cons
 
 =item * Makepp
 
@@ -353,7 +353,7 @@ Many of the programs listed above use Perl.
 
 =item * Go where no  one has gone before
 
-Trigger, Documentation, debugging, visualization, user help, educational, ...
+Trigger, Documentation, debugging, visualization, user help, ...
 
 =back
 
@@ -460,7 +460,7 @@ Each pass is implemented in a separate module, giving you the ability to depend 
           PBS [-p Pbsfile[.pl]] [[-switch]...] target [target ...]
   
   switches:
-      177
+      152
 
 The switches can be categorized as follow:
 
@@ -517,8 +517,6 @@ The switches can be categorized as follow:
 =item * PBS_FLAGS
 
 =item * PBS_LIB_PATH
-
-=item * PBS_PLUGIN_PATH
 
 =back
 
@@ -945,9 +943,9 @@ directory as the Pbsfile, the environment variable B<PBS_LIB_PATH> will be used 
 
 =head1 Meta rules
 
- AddRule 'c_objects',   [ '*/*.o' => '*.c' ], ...
+ AddRule 'c_objects', [ '*/*.o' => '*.c' ], ...
  AddRule 'cpp_objects', [ '*/*.o' => '*.cpp' ], ...
- AddRule 's_objects',   [ '*/*.o' => '*.s' ], ...
+ AddRule 's_objects', [ '*/*.o' => '*.s' ], ...
  
  AddRuleTo 'BuiltIn', [META_RULE], 'o_cs_meta',
 	[\&FirstAndOnlyOneOnDisk, ['cpp_objects', 'c_objects', 's_objects'], 'c_objects'] ;
@@ -988,7 +986,7 @@ Why?
 
 =head3 Rules 
 
-L<file://devel/perl_modules/PerlBuildSystem-0.27/PBSLib/Rules/C.pm>
+L<file://home/nadim/Dev/PerlModules/PerlBuildSystem-0.25/PBSLib/Rules/C.pm>
 
 =head3 Automatic dependencies
 
@@ -1123,12 +1121,12 @@ Run Example:
 
 =back
 
-=head3 Node attributes
+=head3 Note attributes
 
   AddRule 'object1',['object.o' => 'object.c:4.2.0'] ;
 
 You can give attributes to the nodes, the attribute is declare by following the node name with a colon and a textual attribute (see the example bellow).
-When PBS finds such an attribute, it calls a user sub registrated via B<RegisterUserCheckSub>.
+When PBS finds such an attribute, it calls a user sub registrated via RegisterUserCheckSub.
 The user sub receives the following arguments:
 
 =over 0
@@ -1150,8 +1148,7 @@ The node attribute could be used to, for example, verify the version of a node.
   	{
   	my ($full_name, $user_attribute) = @_ ;
   	#print "$full_name => $user_attribute\n" ;
-	
-  	return($full_name) ; # must return a file name
+  	return($_[0]) ; # must return a file name
   	}
   ) ;
 
@@ -1234,7 +1231,7 @@ This allows you to separate your source files from the generated files.
 
 =head3 Default directories
 
-If no build or source directory is specified, B<PBS> will use "out_" + "your login name". If you specify source directories, 
+If no build or source directory is specified, B<PBS> will use the current directory. If you specify source directories, 
 B<PBS> will search exclusively in the specified directories. The current directory is not searched. If you want the 
 current directory and other directories to be searched, you must specify the current directory too.
 
@@ -1450,6 +1447,7 @@ Example of B<PBS> generated digest:
   $digest = {
              './main.o' => 'dc74f3b18b88e845027a683a68c88cbb',
              '__NODE_VARIABLE:CDEFINES' => ' -DARCH_OLYMPUS2=1 -DARGUS2=1 -DCPU_ARGUS2=1 -DEXCEPTION_BASE=0x06000000 -DKERNEL=1 -DKHEAP_32BIT_POOL=1 -DKHEAP_SIZE=0x20000 -DPROC_MAX_PROCESSES=16 -DPROC_QUANTUM=1000000 -DROBASE=0x06000000 -DROBASE_PHYS=0x06000000 -DRWBASE=0x06100000 -DRWBASE_PHYS=0x06100000 -DRWLIMIT=0x08000000',
+             '__PBS_LIB_PATH/Builders/HostedBuilder.pm' => '080bac06fe0fc6338ccd64f6c02a75cb',
              '__PBS_LIB_PATH/projects/argus2_test/Config.pm' => '28dc45bf0943c1a97745de98ba82b8b6',
              '__PBS_LIB_PATH/Configs/Projects/Nailara.pm' => 'c85daa008b4d5eb2abbbff59abf5d6ca',
              '__PBS_LIB_PATH/Configs/Compilers/gcc.pm' => '680336b56f1a9614a270114e3a03a6c9',
@@ -1474,7 +1472,7 @@ Example of B<PBS> generated digest:
 
 I<AddFileDependencies()> : B<PBS> will compute an md5 for each file in the list you pass as argument and add it to the digest.
 
-I<AddEnvironmentDependencies()>: B<PBS> will add each environment variable you name in the list passed as argument. If the
+I<AddEnvironementDependencies()>: B<PBS> will add each environment variable you name in the list passed as argument. If the
 environment variable is not set, B<PBS> will add the variable to the digest and give it the empty string value.
 
 I<AddSwitchDependencies()> : : B<PBS> will add the variables and their values to the digest. Only Defined (-D) and User Defines (-u) can
@@ -1505,14 +1503,12 @@ OSes, so you can't add the cross compiler through I<AddFileDependencies()>.
 
 =head1 Cross Compilation
 
-!!! out of date, no more HostedBuilder in PBS
-
 PBS can log into a remote computer through SSH or Telnet and execute a specific command.
 
-  use PBS::Shell::SSH ;
+  use PBS::Shell_SSH ;
   PbsUse('Builders/HostedBuilder') ;
   
-  my $shell =  new PBS::Shell::SSH
+  my $shell =  new PBS::Shell_SSH
   		(
   		  HOST_NAME        => 'localhost'
   		, USER_NAME        => 'nadim'
@@ -1774,8 +1770,8 @@ Using your own Build():
  {
  my ($build_result, $build_message) = BuildSequenceMiner
  			(
- 			  [@_] # build arguments
- 			, [\&Multiple_O_Compile] # a miner
+ 			  [@_]
+ 			, [\&Multiple_O_Compile]
  			) ;
  			
  PrintInfo("Build done.\n") ;
@@ -1924,12 +1920,6 @@ L<file://home/nadim/Dev/PerlModules/PerlBuildSystem-0.25/snapshots/00000.png>
 
 =cut
 
-=slide Plugins--------------------------------------------------
-
-=head1 Plugins
-
-=cut
-
 =slide Debugging hooks--------------------------------------------------
 =for undone_slide
 
@@ -2018,9 +2008,9 @@ filters :
 =cut
 
 
-=slide Take us to Warp 1 Mr Zulu--------------------------------------------------
+=slide Take us to Warp 1 Mr Sulu--------------------------------------------------
 
-=head1 Take us to Warp 1 Mr Zulu
+=head1 Take us to Warp 1 Mr Sulu
 
 B<PBS> takes 6 seconds, in a test project,  to do nothing vs 0.2 for B<gmake>. OK,  B<gmake> doesn't do what B<PBS> does
 but for the day to day work, 6 seconds are just too much!
@@ -2031,7 +2021,7 @@ but for the day to day work, 6 seconds are just too much!
 
 =item * We already try to not write unoptimal code
 
-=item * Optimizing research code is a non sense
+=item *Optimizing research code is a non sense
 
 =item * Optimizing is long and dificult
 

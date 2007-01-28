@@ -16,6 +16,7 @@ use vars qw(@ISA $_exe $_path_separator);
 use Test::More;
 use Test::Cmd;
 use Test::Cmd::Common;
+use File::Copy::Recursive qw(rcopy);
 
 BEGIN {
 	$_exe = $Test::Cmd::Common::_exe;
@@ -69,18 +70,14 @@ unless (-e $full_pbs_path_global) {
     $full_pbs_path_global = '/usr/bin/env pbs';
 }
 
-$ENV{PBS_LIB_PATH} = Test::Cmd->catfile(Cwd::cwd, 'PBSLib');
-$ENV{PBS_PLUGIN_PATH} = Test::Cmd->catfile(Cwd::cwd, 'Plugins');
-
 my $flags_global = '--no_warp';
-my $warp_mode_global = 0;
+my $warp_mode_global = 'off' ;
 
 =over
 
 =item get_global_warp_mode
 
-Returns the global warp mode, which is 'off' or '1.5'. This
-method is static and can be used without an object.
+Returns the global warp mode. This method is static and can be used without an object.
 
 =back
 
@@ -94,8 +91,7 @@ sub get_global_warp_mode {
 
 =item set_global_warp_mode
 
-Sets the global warp mode, which is 'off' or '1.5'. This
-method is static and can be used without an object.
+Sets the global warp mode. This method is static and can be used without an object.
 
 =back
 
@@ -106,15 +102,11 @@ sub set_global_warp_mode
 	$warp_mode_global = shift;
 	if ($warp_mode_global eq 'off')
 	{
-		$flags_global = '--no_warp';
-	}
-	elsif ($warp_mode_global eq '1.5')
-	{
-		$flags_global = '';
+		$flags_global = '--no_warp' ;
 	}
 	else
 	{
-		die "'$warp_mode_global' not recognized warp mode.\n";
+		$flags_global = "--warp $warp_mode_global" ;
 	}
 }
 
@@ -300,7 +292,26 @@ sub build_test {
     my $self = shift;
     $self->build(@_);
     _inc_level;
-    is($?, 0, 'Build');
+    is($?, 0, 'Build successful');
+    _dec_level;
+}
+
+=over
+
+=item build_test_fail
+
+The same as build but also fails a test if the exit code from pbs is
+signalling success.
+
+=back
+
+=cut
+
+sub build_test_fail {
+    my $self = shift;
+    $self->build(@_);
+    _inc_level;
+    isnt($?, 0, 'Build failed');
     _dec_level;
 }
 
@@ -371,7 +382,7 @@ sub test_up_to_date {
     my $self = shift;
     _inc_level;
     $self->build_test(targets => $self->{'target'});
-    my $up_to_date = 'Warp: Up to date.$|Warp 1.5: Up to date.$|Nothing to build.$';
+    my $up_to_date = 'Warp: Up to date.$|Nothing to build.$';
     my $stdout = $self->stdout;
     like($stdout, qr/$up_to_date/m, 'Up to date');
     _dec_level;
@@ -538,11 +549,9 @@ standard output, one filename on each line.
 
 sub test_node_was_rebuilt {
     my ($self, $file) = @_;
-    # Escape dots
-    $file =~ s|\.|\\.|g;
     _inc_level;
     my $stdout = $self->stdout;
-    like($stdout, qr|Rebuild node $file\n|, 'Node was rebuilt');
+    like($stdout, qr|Rebuild node \Q$file\E\n|, 'Node was rebuilt');
     _dec_level;
 }
 
@@ -558,11 +567,9 @@ The opposite to L<test_node_was_rebuilt>.
 
 sub test_node_was_not_rebuilt {
     my ($self, $file) = @_;
-    # Escape dots
-    $file =~ s|\.|\\.|g;
     _inc_level;
     my $stdout = $self->stdout;
-    unlike($stdout, qr|Rebuild node $file\n|, 'Node was not rebuilt');
+    unlike($stdout, qr|Rebuild node \Q$file\E\n|, 'Node was not rebuilt');
     _dec_level;
 }
 
@@ -645,6 +652,64 @@ sub generate_test_snapshot_and_exit {
     print "!!! Generating snapshot to /tmp/pbs_test_snapshot and exiting !!!\n";
     exit;
 }
+
+=over
+
+=item start_cwd
+
+Returns the absolute path name of the directory that was the
+current working directory at the start.
+
+=back
+
+=cut
+
+sub start_cwd {
+    return $start_cwd_global;
+}
+
+=over
+
+=item setup_test_data
+
+Copies all files and directories (recursively) from a source directory to the
+current directory. The source directory is a specified subdirectory of the
+'t/setup_data' subdirectory of the start directory.
+
+=back
+
+=cut
+
+sub setup_test_data {
+	my ($self, $source_dir) = @_;
+	
+	rcopy($self->catdir($self->start_cwd, 't', 'setup_data', $source_dir), $self->here);
+}
+
+=over
+
+=item setup_test_data_file
+
+Copies a single file from a source directory to the current directory. The
+source directory is a specified subdirectory of the 't/setup_data'
+subdirectory of the start directory.
+
+=back
+
+=cut
+
+sub setup_test_data_file {
+	my ($self,
+		$source_dir,
+		$src,
+		$dst) = @_;
+	
+	$dst = $src unless $dst;
+	
+	rcopy($self->catfile($self->start_cwd, 't', 'setup_data', $source_dir, $src),
+		$self->catfile($self->here, $dst));
+}
+
 
 
 1;

@@ -19,12 +19,13 @@ sub setup : Test(setup) {
 
     $t->build_dir('build_dir');
     $t->target('test-c' . $t::PBS::_exe);
+    $t->command_line_flags('-die_source_cyclic_warning');
 }
 
 sub cyclic_dependencies : Test(4) {
 # Write files
     $t->write_pbsfile(<<"_EOF_");
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
     PbsUse('Rules/C');
 
     AddRule 'test-c', [ 'test-c$t::PBS::_exe' => 'main.o', '2.o' ] =>
@@ -80,18 +81,17 @@ _EOF_
 
     # Build
 	$t->build;
-    my $stderr = $t->stderr;
-    like($stderr, qr|Dependency cycle detected!.*\n.*inc_a\.h.*\n.*inc_b\.h|m, '');
+    my $stdout = $t->stdout;
+    like($stdout, qr|Cycle at node '.*inc_a\.h'.*Cycle at node '.*inc_b\.h.'*|ms, '');
 
     # Build again (earlier this was a bug, cyclic dependencies was not
     # detected at second build).
     $t->build;
-    $stderr = $t->stderr;
+    $stdout = $t->stdout;
 
-#$t->dump_stdout_stderr ;
-#$t->generate_test_snapshot_and_exit();
+#~ $t->generate_test_snapshot_and_exit();
 
-    like($stderr, qr|Dependency cycle detected!.*\n.*inc_a\.h.*\n.*inc_b\.h|m, '');
+    like($stdout, qr|.*Cycle at node '.*inc_a\.h'.*Cycle at node '.*inc_b\.h'|ms, '');
 
     # Removing the cyclic dependency
     $t->write('inc_b.h', <<'_EOF_');

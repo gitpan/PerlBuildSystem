@@ -35,7 +35,7 @@ _EOF_
 sub three_c_files_one_include_file : Test(8) {
     # Write files
     $t->write_pbsfile(<<"_EOF_");
-    PbsUse('Configs/gcc');
+    PbsUse('Configs/Compilers/gcc');
     PbsUse('Rules/C');
 
     AddRule 'test-c', [ 'test-c$t::PBS::_exe' => '1.o', '2.o', '3.o' ] =>
@@ -76,13 +76,11 @@ _EOF_
 
     # Build
     $t->build_test;
-    $t->dump_stdout_stderr;
     $t->run_target_test(stdout => "inc\n3.c\ninc\n2.c\n1.c\n");
 
     $t->test_up_to_date;
-    $t->dump_stdout_stderr;
 
-    # Modify the include file and rebuild
+	# Modify the include file and rebuild
     $t->write('inc.h', <<'_EOF_');
     #define INC_STRING "inc2\n"
 _EOF_

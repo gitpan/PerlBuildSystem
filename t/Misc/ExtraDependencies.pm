@@ -51,7 +51,7 @@ _EOF_
     # Modify the extra dependency file and rebuild
     $t->write('dependency', 'dependency2 contents');
     $t->build_test();
-    if ($t->get_global_warp_mode eq '1.5' || $t->get_global_warp_mode eq '1.0') {
+    if ($t->get_global_warp_mode ne 'off') {
 	TODO: {
 	    local $TODO = 'AddFileDependencies does not work in warp';
 	    $t->test_node_was_rebuilt('./file.target');
@@ -87,7 +87,7 @@ _EOF_
     # Modify the environment variable and rebuild
     $ENV{'PBS_TEST_VARIABLE'} = 'value2';
     $t->build_test();
-    if ($t->get_global_warp_mode eq '1.5' || $t->get_global_warp_mode eq '1.0') {
+    if ($t->get_global_warp_mode ne 'off') {
 	TODO: {
 	    local $TODO = 'AddEnvironmentDependencies does not work in warp';
 	    $t->test_node_was_rebuilt('./file.target');
@@ -194,7 +194,7 @@ _EOF_
     # Modify the extra dependency file and rebuild
     $t->write('dependency', 'dependency2 contents');
     $t->build_test();
-    if ($t->get_global_warp_mode eq '1.5' || $t->get_global_warp_mode eq '1.0') {
+    if ($t->get_global_warp_mode ne 'off') {
 	TODO: {
 	    local $TODO = 'AddVariableDependency does not work in warp';
 	    $t->test_node_was_rebuilt('./file.target');

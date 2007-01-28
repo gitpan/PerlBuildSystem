@@ -14,7 +14,7 @@ our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw(ScanForPlugins RunPluginSubs RunUniquePluginSub) ;
-our $VERSION = '0.03' ;
+our $VERSION = '0.04' ;
 
 use File::Basename ;
 use Getopt::Long ;
@@ -26,55 +26,108 @@ use PBS::Output ;
 
 #-------------------------------------------------------------------------------
 
+my $plugin_load_package = 0 ;
 my %loaded_plugins ;
-my $config = 
+
+if($^O eq "MSWin32")
 	{
-	PLUGIN_PATH => []
+	# remove an annoying warning
+	local $SIG{'__WARN__'} = sub {print STDERR $_[0] unless $_[0] =~ /^Subroutine CORE::GLOBAL::glob/} ;
+
+	# the normal 'glob' handles ~ as the home directory even if it is not at the begining of the path
+	eval "use File::DosGlob 'GLOBAL_glob';" ;
+	die $@ if $@ ;
+	}
+
+#-------------------------------------------------------------------------------
+
+sub GetLoadedPlugins
+{
+return(keys %loaded_plugins) ;
+}
+
+#-------------------------------------------------------------------------------
+
+sub LoadPlugin
+{
+my ($config, $plugin) = @_;
+
+if(exists $loaded_plugins{$plugin})
+	{
+	PrintInfo "   Ignoring Already loaded '$plugin'.\n" if $config->{DISPLAY_PLUGIN_LOAD_INFO} ;
+	return ;
+	}
+	
+if($config->{DISPLAY_PLUGIN_LOAD_INFO})
+	{
+	my ($basename, $path, $ext) = File::Basename::fileparse($plugin, ('\..*')) ;
+	PrintInfo "   $basename$ext\n" ;
+	}
+	
+$loaded_plugins{$plugin} = $plugin_load_package ;
+
+eval
+	{
+	PBS::PBS::LoadFileInPackage
+		(
+		''
+		, $plugin
+		, "PBS::PLUGIN_$plugin_load_package"
+		, {}
+		, "use strict ;\nuse warnings ;\n"
+		  . "use PBS::Output ;\n"
+		) ;
 	} ;
+	
+die ERROR("Couldn't load plugin from '$plugin':\n   $@") if $@ ;
+$plugin_load_package++ ;
+}
+
+#-------------------------------------------------------------------------------
+
+sub LoadPluginFromSubRefs
+{
+my ($config, $plugin, %subs) = @_;
+
+my ($package, $file_name, $line) = caller() ;
+
+if(exists $loaded_plugins{$plugin})
+	{
+	PrintInfo "Plugin '$plugin' from '$file_name:$line' already loaded, Ignoring!\n" if $config->{DISPLAY_PLUGIN_LOAD_INFO} ;
+	}
+else
+	{
+	PrintInfo "Plugin '$plugin' from '$file_name:$line':\n" if $config->{DISPLAY_PLUGIN_LOAD_INFO} ;
+	
+	$loaded_plugins{$plugin} = $plugin_load_package ;
+	
+	while (my($sub_name, $sub_ref) = each %subs)
+		{
+		if($config->{DISPLAY_PLUGIN_LOAD_INFO})
+			{
+			PrintInfo "   sub ref '$sub_name'\n" ;
+			}
+			
+		eval "* PBS::PLUGIN_${plugin_load_package}::$sub_name = \$sub_ref ;" ;
+		}
+	
+	$plugin_load_package++ ;
+	}
+}
 
 #-------------------------------------------------------------------------------
 
 sub ScanForPlugins
 {
-ParseSwitches(@_) ;
+my ($config, $plugin_pathes) = @_ ;
 
-for my $plugin_path (@{$config->{PLUGIN_PATH}})
+for my $plugin_path (@$plugin_pathes)
 	{
 	PrintInfo "Plugin directory '$plugin_path':\n" if $config->{DISPLAY_PLUGIN_LOAD_INFO} ;
 	
-	my $plugin_load = 0 ;
 	for my $plugin (glob("$plugin_path/*.pm"))
 		{
-		if(exists $loaded_plugins{$plugin})
-			{
-			PrintInfo "   Ignoring Already loaded '$plugin'.\n" if $config->{DISPLAY_PLUGIN_LOAD_INFO} ;
-			next ;
-			}
-			
-		if($config->{DISPLAY_PLUGIN_LOAD_INFO})
-			{
-			my ($basename, $path, $ext) = File::Basename::fileparse($plugin, ('\..*')) ;
-			PrintInfo "   $basename$ext\n" ;
-			}
-			
-		$plugin_load++ ;
-		
-		eval
-			{
-			PBS::PBS::LoadFileInPackage
-				(
-				''
-				, $plugin
-				, "PBS::PLUGIN_$plugin_load"
-				, {}
-				, "use strict ;\nuse warnings ;\n"
-				  . "use PBS::Output ;\n"
-				) ;
-			} ;
-			
-		die ERROR("Couldn't load plugin from '$plugin':\n   $@") if $@ ;
-		
-		$loaded_plugins{$plugin}++ ;
+		LoadPlugin($config, $plugin) ;
 		}
 	}
 }
@@ -85,25 +138,29 @@ sub RunPluginSubs
 {
 # run multiple subs, don't return anything
 
-my $plugin_sub_name = shift ;
+my ($config, $plugin_sub_name, @plugin_arguments) = @_ ;
 
-my $plugin_load = 0 ;
+my ($package, $file_name, $line) = caller() ;
+$file_name =~ s/^'// ;
+$file_name =~ s/'$// ;
 
-for my $plugin_path (keys %loaded_plugins)
+PrintInfo "Calling '$plugin_sub_name' from '$file_name:$line':\n" if $config->{DISPLAY_PLUGIN_RUNS} ;
+
+for my $plugin_path (sort keys %loaded_plugins)
 	{
 	no warnings ;
 
-	$plugin_load++ ;
+	my $plugin_load_package = $loaded_plugins{$plugin_path} ;
 	
 	my $plugin_sub ;
 	
-	eval "\$plugin_sub = *PBS::PLUGIN_${plugin_load}::${plugin_sub_name}{CODE} ;" ;
+	eval "\$plugin_sub = *PBS::PLUGIN_${plugin_load_package}::${plugin_sub_name}{CODE} ;" ;
 	
 	if($plugin_sub)
 		{
 		PrintInfo "Running '$plugin_sub_name' in plugin '$plugin_path'\n" if $config->{DISPLAY_PLUGIN_RUNS} ;
 		
-		eval {$plugin_sub->(@_)} ;
+		eval {$plugin_sub->(@plugin_arguments)} ;
 		die ERROR "Error Running plugin sub '$plugin_sub_name':\n$@" if $@ ;
 		}
 	else
@@ -119,185 +176,81 @@ sub RunUniquePluginSub
 {
 # run a single sub and returns
 
-my $plugin_sub_name = shift ;
+my ($config, $plugin_sub_name, @plugin_arguments) = @_ ;
 
-my ($plugin_load, @found_plugin, $plugin_path, $plugin_sub) = (0) ;
+my ($package, $file_name, $line) = caller() ;
+$file_name =~ s/^'// ;
+$file_name =~ s/'$// ;
+
+PrintInfo "Calling unique '$plugin_sub_name' from '$file_name:$line':\n" if $config->{DISPLAY_PLUGIN_RUNS} ;
+
+my (@found_plugin, $plugin_path, $plugin_sub) ;
 my ($plugin_sub_to_run, $plugin_to_run_path) ;
 
-for $plugin_path (keys %loaded_plugins)
+for $plugin_path (sort keys %loaded_plugins)
 	{
 	no warnings ;
 
-	$plugin_load++ ;
-	eval "\$plugin_sub = *PBS::PLUGIN_${plugin_load}::${plugin_sub_name}{CODE} ;" ;
+	my $plugin_load_package = $loaded_plugins{$plugin_path} ;
+	
+	eval "\$plugin_sub = *PBS::PLUGIN_${plugin_load_package}::${plugin_sub_name}{CODE} ;" ;
 	push @found_plugin, $plugin_path if($plugin_sub) ;
 
 	if($plugin_sub)
 		{
 		$plugin_sub_to_run = $plugin_sub ;
 		$plugin_to_run_path = $plugin_path ;
-		PrintInfo "Found '$plugin_sub_name' in plugin '$plugin_path'\n" if $config->{DISPLAY_PLUGIN_RUNS} ;
+		PrintInfo "Found unique '$plugin_sub_name' in plugin '$plugin_path'\n" if $config->{DISPLAY_PLUGIN_RUNS} ;
 		}
 	else
 		{
-		PrintWarning "Couldn't find '$plugin_sub_name' in plugin '$plugin_path'\n" if $config->{DISPLAY_PLUGIN_RUNS} ;
+		PrintWarning "Couldn't find unique '$plugin_sub_name' in plugin '$plugin_path'\n" if $config->{DISPLAY_PLUGIN_RUNS} ;
 		}
 	}
 	
 if(@found_plugin > 1)
 	{
-	die ERROR "Error: Found more than one plugin for '$plugin_sub_name'\n" . join("\n", @found_plugin) . "\n" ;
+	die ERROR "Error: Found more than one plugin for unique '$plugin_sub_name'\n" . join("\n", @found_plugin) . "\n" ;
 	}
 
 if($plugin_sub_to_run)
 	{
-	PrintInfo "Running '$plugin_sub_name' in plugin '$plugin_to_run_path'\n" if $config->{DISPLAY_PLUGIN_RUNS} ;
+	PrintInfo "Running unique '$plugin_sub_name' in plugin '$plugin_to_run_path'\n" if $config->{DISPLAY_PLUGIN_RUNS} ;
 	
 	if(! defined wantarray)
 		{
-		eval {$plugin_sub_to_run->(@_)} ;
-		die ERROR "Error Running plugin sub '$plugin_sub_name':\n$@" if $@ ;
+		eval {$plugin_sub_to_run->(@plugin_arguments)} ;
+		die ERROR "Error Running unique plugin sub '$plugin_sub_name':\n$@" if $@ ;
 		}
 	else
 		{
 		if(wantarray)
 			{
 			my @results ;
-			eval {@results = $plugin_sub_to_run->(@_)} ;
-			die ERROR "Error Running plugin sub '$plugin_sub_name':\n$@" if $@ ;
+			eval {@results = $plugin_sub_to_run->(@plugin_arguments)} ;
+			die ERROR "Error Running unique plugin sub '$plugin_sub_name':\n$@" if $@ ;
 			
 			return(@results) ;
 			}
 		else
 			{
 			my $result ;
-			eval {$result = $plugin_sub_to_run->(@_)} ;
-			die ERROR "Error Running plugin sub '$plugin_sub_name':\n$@" if $@ ;
+			eval {$result = $plugin_sub_to_run->(@plugin_arguments)} ;
+			die ERROR "Error Running unique plugin sub '$plugin_sub_name':\n$@" if $@ ;
 			
 			return($result) ;
 			}
 		}
-		
 	}
 else
 	{
-	PrintWarning "Couldn't find Plugin '$plugin_sub_name'.\n" if $config->{DISPLAY_PLUGIN_RUNS} ;
+	PrintWarning "Couldn't find unique Plugin '$plugin_sub_name'.\n" if $config->{DISPLAY_PLUGIN_RUNS} ;
+	return ;
 	}
 }
 
 #-------------------------------------------------------------------------------
 
-sub ParseSwitches
-{
-my @switches = @_ ;
-
-Getopt::Long::Configure('no_auto_abbrev', 'no_ignore_case', 'require_order') ;
-my @flags = PBS::PBSConfigSwitches::Get_GetoptLong_Data($config) ;
-
-{ # localized scope
-
-local @ARGV = ( # default colors so the user only need to say --colorize
-		  '-ci'  => 'green'
-		, '-ci2' => 'blink green'
-		, '-cw'  => 'yellow'
-		, '-cw2' => 'blink yellow'
-		, '-ce'  => 'red'
-		, '-cd'  => 'magenta'
-		, '-cs'  => 'bold green'
-		, '-cu'  => 'cyan'
-		) ;
-		
-unless(GetOptions(@flags))
-	{
-	die ERROR "Error in default colors configuration." ;
-	}
-
-@ARGV = @switches ;
-
-for (my $argument_index = 0 ; $argument_index < @ARGV ; $argument_index++)
-	{
-	if($ARGV[$argument_index] =~ /(-nge)|(-no_global_environement)/)
-		{
-		$config->{NO_GLOBAL_ENVIRONEMENT}++ ;
-		}
-
-	if($ARGV[$argument_index] =~ /(-nprf)|(-no_pbs_response_file)/)
-		{
-		$config->{NO_PBS_RESPONSE_FILE}++ ;
-		}
-
-	if($ARGV[$argument_index] =~ /(-prf)|(-pbs_response_file)/)
-		{
-		$config->{PBS_RESPONSE_FILE} = $_[$argument_index + 1] || '' ;
-		$argument_index += 1 ;
-		}
-	}
-
-unless(defined $config->{NO_GLOBAL_ENVIRONEMENT})
-	{
-	my $status = PBS::PBSConfig::ParseEnvironementSwitches($config, @flags) ;
-	
-	if($status == CONFIG_ENVIRONEMENT_VARIABLE_FLAG_ERROR)
-		{
-		die ERROR "Environement variable 'PBS_FLAGS=$ENV{PBS_FLAGS}' contains unrecognized options. Try -h.\n" ;
-		}
-	}
-
-unless(defined $config->{NO_PBS_RESPONSE_FILE})
-	{
-	my ($status, $data) = PBS::PBSConfig::ParsePrfSwitches($config, @flags) ;
-	
-	for ($status)
-		{
-		$status == CONFIG_PRF_ERROR and do
-			{
-			die ERROR $data ;
-			} ;
-			
-		$status == CONFIG_PRF_FLAG_ERROR and do
-			{
-			die ERROR "Pbs response file '$data' contains unrecognized options. Try -h.\n" ;
-			} ;
-		}
-	}
-
-# make switch parsing position independent
-my $contains_switch ;
-
-do
-	{
-	while(@ARGV && $ARGV[0] !~ /^-/)
-		{
-		shift @ARGV ;
-		}
-		
-	$contains_switch = @ARGV ;
-	
-	# plugin switches are not know yet
-	local $SIG{'__WARN__'} = sub {print STDERR $_[0] unless $_[0] =~ 'Unknown option:'} ;
-	
-	unless(GetOptions(@flags))
-		{
-		shift @ARGV ; # error in switch just ignore, will be detected later
-		}
-	}
-while($contains_switch) ;
-} # end of localized scope
-
-my $cwd = cwd() ;
-for my $plugin_path (@{$config->{PLUGIN_PATH}})
-	{
-	unless(File::Spec->file_name_is_absolute($plugin_path))
-		{
-		$plugin_path = File::Spec->catdir($cwd, $plugin_path)  ;
-		}
-		
-	$plugin_path = PBS::PBSConfig::CollapsePath($plugin_path ) ;
-	}
-
-}
-
-#-------------------------------------------------------------------------------
 1 ;
 
 __END__

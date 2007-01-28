@@ -55,6 +55,7 @@ _EOF_
     $t->write('c.in', 'file contents');
 
     # Build
+	 #~ $t->generate_test_snapshot_and_exit ;
     $t->build_test;
     $t->test_file_contents('build_dir/a.target', 'file contents');
     $t->test_file_contents('build_dir/b.target', 'file contents');
