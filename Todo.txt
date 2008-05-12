@@ -1,6 +1,66 @@
 Perl Build System
 =================
 
+install pbs on linux and pbs.pl on windows
+
+Add a bunch of test with bad pbsfiles to catch syntax errors
+
+#if not tagets are given, try to extract help from the pbsfile
+
+#build buffer name should only be displayed if --keep_build_buffers is set
+
+#add remove deepest node script to distribution (perl version)
+#add default pbsfile in generated project
+#add examples/scripts to run the various warp modes
+
+stdout/err redirection should be done through a standard module
+
+#use Memoize to speedup Warp 1.8
+	25% faster with memoize
+	check:
+		no warp 1.8 exists
+		generation of the empty warp takes 2 seconds
+		after verifying the tree, second warp generation takes 1.5 seconds
+		this is strange as there is nothing to build, I expected an
+			almost instantaneous warp generation
+		next run, with a node to rebuild, generation is 0.2 seconds
+		
+#"no user defined builder, using namespace xxxx" should not be displayed by default
+	using namespace and config should be displayed when a non default config is used
+
+It should be possible to display a package config before and after the Pbsfiles is run. 
+	Displaying a delta only would be less cluter. 
+		(not possible in current config module, overrides are pushed in parent config)
+	Controlling the configuration dump should be possible
+	displaying a nodes config delta in -bni
+		=> means we should be able to extract the config from the node
+		
+node config should keep the package config and only store its config delta instead
+	for making a copy of the parent config
+	
+? Rename AddConfig to SetConfig
+
+PBS accepts cyclic dependencies in source files (IE c, h)
+	this should work only if a swith is set instead for being default
+	when the dependency is in C file cache, no warning is displayed when
+		the cache is used (OK but let's spammer the little buggers)
+	
+Plugin FileWatchClient has a peculiar way of finding out what a node __BUILD_NAME is
+	=> define the nodes (passed as arguments) in a better way
+	
+warp and watch server: 
+	in the event of a warp run with unexisting warp file, it is still possible to use the watch
+	server if it has been used by another pbs run. of course this means the server keeps
+	the md5 not only the fact that files where modified
+	
+	The md5 filesystem should keep the md5 in a cache
+	
+	Warp 0 should also use the watch server
+
+Add tests for watch server
+	warp file exists/not exists
+	warp fails for a single file should not need to rebuild all (see remark in warp 1.8)
+	
 PBS + vanilla perl + PAR
 
 Problem with triggers and fully located dependencies
@@ -42,8 +102,7 @@ Split $inserted_nodes in parts (dry nodes and live nodes)
 	=> there is no reason to go through all the nodes to find out which ones are live (warp 1.8)
 	=> can be done by an object (same interface as hash + query members) or two variables
 	
-lint mode
-	might be possible to do in a post pbs
+lint mode (might be possible to do in a post pbs)
 	display which pbsused modules didn't have a matching rule
 	modules without rules defined
 	modules with too many rules defined
@@ -57,7 +116,7 @@ warp
 	#have unique -warp switch with arguments
 	#make tests work with all warp mode (not dependent on output)
 	how expensive is it to gnerate the warp file in multiple small files (one per node?/subpbs)
-		=> implemented in W 1.8
+		=> implemented in W 1.8 and very expensive generation
 	
 Generate bash completion when building a distribution
 	pbs might not be installed and thus must be taken from blib
@@ -1014,7 +1073,7 @@ Front end in other languages: python, ruby, ... ?
 
 -warp and -j when the terminal nodes are already build.
 
-C depender should evaluate -I pathes to reduce . and ..
+C depender should evaluate -I paths to reduce . and ..
 
 triggers and subpbs are virtualy the same
 	instead for linking the node by hand in a subpbs, simply link it from the inserted nodes
@@ -1582,7 +1641,7 @@ in warp file $number_of_nodes_in_the_dependency_tree = 0;
 #if depender definition is an array and first arg is a sub, call it to know 
 	#if a dependent matches this would allow for
 	#	[ Any(qr/xxx/, qr/ccc/) => 'cc']
-	#	consider it as  pure perl rule?
+	#	consider it as Â pure perl rule?
 	#	Any, not
 	#	, \&sub and documentation
 
@@ -1939,7 +1998,7 @@ in warp file $number_of_nodes_in_the_dependency_tree = 0;
 
 # threadpool: Ithread sucks!
 
-# 2 pathes to PBSLib
+# 2 paths to PBSLib
 
 # !!!! Buuuug! handling dependencies as relative, full and xxx changes the insertion order
 

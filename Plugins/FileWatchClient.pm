@@ -104,7 +104,11 @@ eval
 			unless('VIRTUAL' eq $nodes->{$node}{__MD5})
 				{
 				# rebuild the build name
-				if(exists $nodes->{$node}{__LOCATION})
+				if(exists $nodes->{$node}{__BUILD_NAME})
+					{
+					# use this one
+					}
+				elsif(exists $nodes->{$node}{__LOCATION})
 					{
 					$nodes->{$node}{__BUILD_NAME} = $nodes->{$node}{__LOCATION} . substr($node, 1) ;
 					}
@@ -133,7 +137,7 @@ eval
 if($@)
 	{
 	PrintError "Couldn't connect to watch Server! $@\n" ;
-	$PBS::pbs_run_information->{WATCH_SERVER} = 'Not running' ;
+	$PBS::pbs_run_information->{WATCH_SERVER}{STATUS} = 'Not running' ;
 	$files_checker = \&PBS::Digest::IsFileModified ;
 	}
 elsif(! $is_registred)
@@ -204,7 +208,7 @@ else
 							}
 						else
 							{
-							# directory modified, check md5
+							# may be modified check md5
 							$file_is_modified = PBS::Digest::IsFileModified($pbs_config, $node_name, $node_md5) ;
 							}
 						}

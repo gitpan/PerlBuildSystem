@@ -134,8 +134,8 @@ my $command    = shift || '' ;
 eval { use Pod::Simple::Search ;} ;
 die $@ if $@ ;
 
-my @extra_pathes = (@{$pbs_config->{LIB_PATH}}, @{$pbs_config->{PLUGIN_PATH}}) ;
-my ($index_by_file, $index_by_section) = Generateindexes(@extra_pathes) ;
+my @extra_paths = (@{$pbs_config->{LIB_PATH}}, @{$pbs_config->{PLUGIN_PATH}}) ;
+my ($index_by_file, $index_by_section) = Generateindexes(@extra_paths) ;
 
 my $terminal = new Term::ReadLine 'Pbs documentation search' ;
 
@@ -166,7 +166,7 @@ do
 			
 			if(defined $module && $module ne '')
 				{
-				PrintModule($module, @extra_pathes) ;
+				PrintModule($module, @extra_paths) ;
 				last ;
 				}
 			} ;
@@ -177,7 +177,7 @@ do
 			
 			if(defined $module && $module ne '')
 				{
-				OutlineModule($module, @extra_pathes) ;
+				OutlineModule($module, @extra_paths) ;
 				last ;
 				}
 			} ;
@@ -278,12 +278,12 @@ else
 sub OutlineModule
 {
 my $module_regex = shift ;
-my @extra_pathes = @_ ;
+my @extra_paths = @_ ;
 
 my $parser = PBS::Documentation::Indexer->new();
 
 my @files = values %{Pod::Simple::Search->new->shadows(1)->limit_glob($module_regex)->survey()} ;
-push @files, grep {/$module_regex/} values %{Pod::Simple::Search->new->shadows(1)->inc(0)->survey(@extra_pathes)} ;
+push @files, grep {/$module_regex/} values %{Pod::Simple::Search->new->shadows(1)->inc(0)->survey(@extra_paths)} ;
 @files = sort @files ;
 
 my $selected_entry = SelectEntry(@files) ;
@@ -312,10 +312,10 @@ if(defined $selected_entry)
 sub PrintModule
 {
 my $module_regex = shift ;
-my @extra_pathes = @_ ;
+my @extra_paths = @_ ;
 
 my @files = values %{Pod::Simple::Search->new->shadows(1)->limit_glob($module_regex)->survey()} ;
-push @files, grep {/$module_regex/} values %{Pod::Simple::Search->new->shadows(1)->inc(0)->survey(@extra_pathes)} ;
+push @files, grep {/$module_regex/} values %{Pod::Simple::Search->new->shadows(1)->inc(0)->survey(@extra_paths)} ;
 @files = sort @files ;
 
 my $selected_entry = SelectEntry(@files) ;
@@ -431,14 +431,14 @@ else
 
 sub Generateindexes
 {
-my @extra_pathes = @_ ;
+my @extra_paths = @_ ;
 
 my $parser = PBS::Documentation::Indexer->new();
 
 print "Searching and indexing pod sections.\n" ;
 
 my (undef, $path2name_pbs) = Pod::Simple::Search->new->limit_glob('PBS::*')->survey() ;
-my (undef, $path2name_extra) = Pod::Simple::Search->new->shadows(1)->inc(0)->survey(@extra_pathes) ;
+my (undef, $path2name_extra) = Pod::Simple::Search->new->shadows(1)->inc(0)->survey(@extra_paths) ;
 
 my @files = (keys %$path2name_pbs, keys %$path2name_extra) ;
 

@@ -456,6 +456,14 @@ unless(defined $pbs_config->{BUILD_DIRECTORY})
 		}
 	}
 
+if(defined $pbs_config->{LIB_PATH})
+	{
+	for my $lib_path (@{$pbs_config->{LIB_PATH}})
+		{
+		$lib_path .= '/' unless $lib_path =~ /\/$/ ;
+		}
+	}
+
 # compute a signature for the current PBS run
 # check if a signature exists in the output directory
 # OK if the signatures match

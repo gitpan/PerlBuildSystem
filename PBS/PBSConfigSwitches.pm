@@ -245,7 +245,7 @@ Recognized colors are :
 	'underscore'
 	'blink'
 	'reverse'
-	'black    'on_black'  
+	'black'    'on_black'  
 	'red'     'on_red' 
 	'green'   'on_green'
 	'yellow'  'on_yellow'
@@ -313,7 +313,7 @@ EOT
 		, ''
 		
 	, 'display_pbs_lib_path'            => \$pbs_config->{DISPLAY_LIB_PATH}
-		, "Displays PBS lib pathes (for the current project) and exits."
+		, "Displays PBS lib paths (for the current project) and exits."
 		, ''
 		
 	, 'ppp|pbs_plugin_path=s'           => $pbs_config->{PLUGIN_PATH}
@@ -321,7 +321,7 @@ EOT
 		, ''
 		
 	, 'display_pbs_plugin_path'         => \$pbs_config->{DISPLAY_PLUGIN_PATH}
-		, "Displays PBS plugin pathes (for the current project) and exits."
+		, "Displays PBS plugin paths (for the current project) and exits."
 		, ''
 		
 	, 'no_default_path_warning'              => \$pbs_config->{NO_DEFAULT_PATH_WARNING}
@@ -633,6 +633,10 @@ EOT
 		, 'Display the config used during a Pbs run (simplified and from the used config namespaces only).'
 		, ''
 		
+        , 'display_config_delta'            => \$pbs_config->{DISPLAY_CONFIGURATION_DELTA}
+	, 'Display the delta between the parent config and the config after the Pbsfile is run.'
+	, ''
+					
 	, 'dca|display_config_all'          => \$pbs_config->{DISPLAY_CONFIGURATION_ALL}
 		, 'Display the config namespaces used during a Pbs run (even unused config namspaces).'
 		, ''

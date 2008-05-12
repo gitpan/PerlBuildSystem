@@ -485,9 +485,9 @@ $rule_definition->{NODE_SUBS} = $node_subs if @$node_subs ;
 if(defined $pbs_config->{DEBUG_DISPLAY_RULES})
 	{
 	my $class_info = "[$class" ;
-	$class_info .= ' (POST_DEPEND)' if $rule_type{POST_DEPEND} ;
-	$class_info .= ' (META_SLAVE)'  if $rule_type{META_SLAVE} ;
-	$class_info .= ' (CREATOR)'     if $rule_type{CREATOR};
+	$class_info .= ' (POST_DEPEND)' if $rule_type{__POST_DEPEND} ;
+	$class_info .= ' (META_SLAVE)'  if $rule_type{__META_SLAVE} ;
+	$class_info .= ' (CREATOR)'     if $rule_type{__CREATOR};
 	$class_info .= ']' ;
 		
 	if('HASH' eq ref $depender_definition)

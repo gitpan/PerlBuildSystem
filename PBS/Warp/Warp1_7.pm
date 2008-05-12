@@ -14,7 +14,7 @@ our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw() ;
-our $VERSION = '0.01' ;
+our $VERSION = '0.02' ;
 
 #-------------------------------------------------------------------------------
 
@@ -39,9 +39,9 @@ sub WarpPbs
 {
 my ($targets, $pbs_config, $parent_config) = @_ ;
 
-my $warp_signature = PBS::Warp::GetWarpSignature($targets, $pbs_config) ;
-my $warp_path = $pbs_config->{BUILD_DIRECTORY} ;
-my $warp_file= "$warp_path/Pbsfile_$warp_signature.warp1_7.blob" ;
+my ($warp_signature) = PBS::Warp::GetWarpSignature($targets, $pbs_config) ;
+my $warp_path = $pbs_config->{BUILD_DIRECTORY} . '/warp1_7';
+my $warp_file= "$warp_path/Pbsfile_$warp_signature.blob" ;
 
 $PBS::pbs_run_information->{WARP_1_7}{FILE} = $warp_file ;
 PrintInfo "Warp file name: '$warp_file'\n" if defined $pbs_config->{DISPLAY_WARP_FILE_NAME} ;
@@ -121,31 +121,33 @@ else
 	$run_in_warp_mode = 0 ;
 	}
 
-# use filewatching or default MD5 checking
-my $IsFileModified = RunUniquePluginSub($pbs_config, 'GetWatchedFilesChecker', $pbs_config, $warp_signature, $nodes) ;
-
-# skip all tests if nothing is modified
-if($run_in_warp_mode && defined $IsFileModified  && '' eq ref $IsFileModified  && 0 == $IsFileModified )
-	{
-	if($pbs_config->{DISPLAY_WARP_TIME})
-		{
-		my $warp_verification_time = tv_interval($t0_warp_check, [gettimeofday]) ;
-		PrintInfo(sprintf("Warp verification time: %0.2f s.\n", $warp_verification_time)) ;
-		$PBS::pbs_run_information->{WARP_1_7}{VERIFICATION_TIME} = $warp_verification_time ;
-		
-		my $warp_total_time = tv_interval($t0_warp, [gettimeofday]) ;
-		PrintInfo(sprintf("Warp total time: %0.2f s.\n", $warp_total_time)) ;
-		$PBS::pbs_run_information->{WARP_1_7}{TOTAL_TIME} = $warp_total_time ;
-		}
-		
-	PrintInfo("Warp: Up to date.\n") ;
-	return (BUILD_SUCCESS, "Warp: Up to date", {READ_ME => "Up to date warp doesn't have any tree"}, $nodes) ;
-	}
-
-$IsFileModified ||= \&PBS::Digest::IsFileModified ;
 my @build_result ;
 if($run_in_warp_mode)
 	{
+	# use filewatching or default MD5 checking
+	my $IsFileModified = RunUniquePluginSub($pbs_config, 'GetWatchedFilesChecker', $pbs_config, $warp_signature, $nodes) ;
+
+	# skip all tests if nothing is modified
+	if($run_in_warp_mode && defined $IsFileModified  && '' eq ref $IsFileModified  && 0 == $IsFileModified )
+		{
+		if($pbs_config->{DISPLAY_WARP_TIME})
+			{
+			my $warp_verification_time = tv_interval($t0_warp_check, [gettimeofday]) ;
+			PrintInfo(sprintf("Warp verification time: %0.2f s.\n", $warp_verification_time)) ;
+			$PBS::pbs_run_information->{WARP_1_7}{VERIFICATION_TIME} = $warp_verification_time ;
+			
+			my $warp_total_time = tv_interval($t0_warp, [gettimeofday]) ;
+			PrintInfo(sprintf("Warp total time: %0.2f s.\n", $warp_total_time)) ;
+			$PBS::pbs_run_information->{WARP_1_7}{TOTAL_TIME} = $warp_total_time ;
+			}
+			
+		PrintInfo("Warp: Up to date.\n") ;
+		return (BUILD_SUCCESS, "Warp: Up to date", {READ_ME => "Up to date warp doesn't have any tree"}, $nodes) ;
+		}
+
+	$IsFileModified ||= \&PBS::Digest::IsFileModified ;
+	
+	
 	my ($number_of_removed_nodes)
 		= Dewarpify($pbs_config, $nodes, $node_names, $insertion_file_names, $global_pbs_config, $IsFileModified) ;
 	
@@ -228,6 +230,10 @@ if($run_in_warp_mode)
 				  $targets, $new_dependency_tree, $nodes
 				, $pbs_config, $warp_configuration
 				) ;
+				
+				# force a refresh after we build files and generated events
+				# TODO: note that the synch should be by file not global
+				RunUniquePluginSub($pbs_config, 'ClearWatchedFilesList', $pbs_config, $warp_signature) ;
 			}
 			
 		@build_result = ($build_result, $build_message, $new_dependency_tree, $nodes) ;
@@ -308,13 +314,6 @@ else
 			
 	@build_result = ($build_result, $build_message, $dependency_tree, $inserted_nodes) ;
 	}
-
-if($build_result[0])
-	{
-	# force a refresh after we build files and generated events
-	# note that the synch should be by file not global
-	RunUniquePluginSub($pbs_config, 'ClearWatchedFilesList', $pbs_config, $warp_signature) ;
-	}
 	
 return(@build_result) ;
 }
@@ -374,7 +373,7 @@ for my $node (keys %$nodes)
 		}
 	else
 		{
-		#~ PrintInfo "\r$node_verified" ;
+		PrintInfo "\r$node_verified" unless  ($node_verified + $number_of_removed_nodes) % 100 ;
 		}
 		
 	$node_verified++ ;
@@ -537,11 +536,16 @@ $warp_configuration = PBS::Warp::GetWarpConfiguration($pbs_config, $warp_configu
 PrintInfo("Generating warp file               \n") ;
 my $t0_warp_generate =  [gettimeofday] ;
 
-my $warp_signature = PBS::Warp::GetWarpSignature($targets, $pbs_config) ;
-my $warp_path = $pbs_config->{BUILD_DIRECTORY} ;
+my ($warp_signature, $warp_signature_source) = PBS::Warp::GetWarpSignature($targets, $pbs_config) ;
+my $warp_path = $pbs_config->{BUILD_DIRECTORY} . '/warp1_7';
 mkpath($warp_path) unless(-e $warp_path) ;
 
-my $warp_file= "$warp_path/Pbsfile_$warp_signature.warp1_7.blob" ;
+(my $original_arguments = $pbs_config->{ORIGINAL_ARGV}) =~ s/[^0-9a-zA-Z_-]/_/g ;
+my $warp_info_file= "$warp_path/Pbsfile_${warp_signature}_${original_arguments}" ;
+open(WARP_INFO, ">", $warp_info_file) or die qq[Can't open $warp_info_file: $!] ;
+close(WARP_INFO) ;
+
+my $warp_file= "$warp_path/Pbsfile_$warp_signature.blob" ;
 
 my $header = PBS::Log::GetHeader('Warp', $pbs_config) ;
 

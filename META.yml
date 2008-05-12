@@ -1,11 +1,14 @@
 ---
 name: PerlBuildSystem
-version: 0.43.290
+version: 0.44
 author:
   - 'Khemir Nadim ibn Hamouda. <nadim@khemir.net>'
-abstract: build utility/modules in the same spirit as gmake
-license: restrictive
+abstract: Build utility/modules in the same spirit as gmake
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
 requires:
+  Class::MethodMaker: 0
   Cwd: 2.06
   Data::Compare: 0
   Data::Dumper: 2.12
@@ -23,6 +26,7 @@ requires:
   Module::Build: 0.2611
   Module::Util: 0.2611
   Pod::Simple::Search: 0
+  Term::ReadKey: 0
   Test::Class: 0
   Test::Cmd: 0
   Tie::Hash::Indexed: 0.03
@@ -83,7 +87,7 @@ provides:
     version: 0.02
   PBS::FrontEnd:
     file: PBS/FrontEnd.pm
-    version: 0.43
+    version: 0.44
   PBS::Graph:
     file: PBS/Graph.pm
     version: 0.04
@@ -169,13 +173,13 @@ provides:
     version: 0.01
   PBS::Warp::Warp1_5:
     file: PBS/Warp/Warp1_5.pm
-    version: 0.03
+    version: 0.05
   PBS::Warp::Warp1_7:
     file: PBS/Warp/Warp1_7.pm
-    version: 0.01
+    version: 0.02
   PBS::Warp::Warp1_8:
     file: PBS/Warp/Warp1_8.pm
-    version: 0.02
+    version: 0.04
   PBS::Watch::Client:
     file: PBS/Watch/Client.pm
     version: 0.03
@@ -190,7 +194,7 @@ provides:
     version: 0.02
   VisualStudioProjectFile:
     file: PBSLib/Utils/VisualStudioProjectFile.pm
-generated_by: Module::Build version 0.2805
+generated_by: Module::Build version 0.2808
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
   version: 1.2

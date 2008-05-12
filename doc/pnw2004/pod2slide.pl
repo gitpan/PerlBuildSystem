@@ -1,13 +1,14 @@
 
 #!/usr/local/bin/perl -w
 
-# pod2slide.pl (C) 2004
+# pod2slide.pl (C) 2004, 2007
 #Hereby release to the public domain by Nadim Ibn Hamouda El Khmir.
 
 use strict ;
 use warnings ;
 use Digest::MD5 qw(md5_hex) ;
 use Pod::Html;
+use File::Slurp ;
 
 my $in_slide = 0 ;
 my $undone_flag = '' ; # use '' and '*' for 0 and 1.
@@ -52,7 +53,6 @@ while(<>)
 		
 		open SLIDE_POD, ">", "$out_dir$slide_file.pod" or die "can't open '$out_dir$slide_file.pod': $!" ;
 		print SLIDE_POD "=begin html\n\n<div class=pod>\n\n=end html\n\n" ;
-		
 		push @slides, [$slide_file, $unmodified_slide_name, ''] ;
 		next ;
 		}
@@ -91,9 +91,28 @@ for(my $slide_index = 0 ;  $slide_index < $number_of_slides ; $slide_index++)
 		$next = $slides[$slide_index + 1][0] ;
 		}
 		
-	open SLIDE_POD, ">>", "$out_dir$slide_file.pod"  or die "can't open '$out_dir$slide_file.pod': $!" ;
-	
-	print SLIDE_POD <<EOHTML ;
+	my $head_arrows_html = <<EOA ;
+
+=begin html
+<br>
+<table width=100%>
+<tr>
+<td align="right" width=33%>
+  <a href='${previous}.html'>&lt;&lt;</a>&nbsp
+ <a href='index_slide.html'>^</a>&nbsp
+ <a href='${next}.html'>&gt;&gt;</a>
+ [@{[$slide_index+1]}/$number_of_slides]
+</td>
+</tr>
+</table>
+<div class="">
+
+=end html
+
+EOA
+
+	my $arrows_html = <<EOA ;
+
 =begin html
 
 <br>
@@ -109,12 +128,16 @@ for(my $slide_index = 0 ;  $slide_index < $number_of_slides ; $slide_index++)
 <td align="right" width=33%>Copyright &copy; $copyright</td>
 </tr>
 </table>
+<div class="">
 
 =end html
-EOHTML
 
-	close(SLIDE_POD) ;
-	
+EOA
+
+
+	my $pod = read_file("$out_dir$slide_file.pod") ;
+	write_file("$out_dir$slide_file.pod", $pod, $arrows_html) ;
+
 	my $md5 = 'error' ;
 	if(open(FILE, "$out_dir$slide_file.pod"))
 		{
@@ -155,7 +178,7 @@ EOHTML
 		print "Undone flag set for: '$unmodified_slide_name'.\n" if $undone_flag eq '*' ;
 		}
 		
-	unlink("$out_dir$slide_file.pod") ;
+	#~ unlink("$out_dir$slide_file.pod") ;
 	
 	# Arfff!
 	{

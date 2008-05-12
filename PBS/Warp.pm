@@ -57,7 +57,7 @@ my ($targets, $pbs_config) = @_ ;
 my $pbs_prf = $pbs_config->{PBS_RESPONSE_FILE} || '' ;
 my $pbs_lib_path = $pbs_config->{LIB_PATH} || '' ;
 
-my $warp_signature = md5_hex
+my $warp_signature_source =
 		(
 		  join('_', @$targets) 
 		
@@ -67,10 +67,12 @@ my $warp_signature = md5_hex
 		. DumpTree($pbs_config->{USER_OPTIONS}, '', USE_ASCII => 1) 
 		
 		. $pbs_prf
-		. $pbs_lib_path
+		. DumpTree($pbs_lib_path, '', USE_ASCII => 1)
 		) ;
 
-return($warp_signature) ;
+my $warp_signature = md5_hex($warp_signature_source) ;
+
+return($warp_signature, $warp_signature_source) ;
 }
 
 #--------------------------------------------------------------------------------------------------

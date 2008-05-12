@@ -54,7 +54,8 @@ use PBS::PBSConfig ;
 use PBS::Digest;
 use PBS::Rules ;
 use PBS::Output ;
-use PBS::Warp1_5 ;
+use PBS::Warp ;
+use PBS::Warp::Warp1_5 ;
 
 use File::Basename ;
 use File::Path ;
@@ -252,8 +253,12 @@ my ($dependency_file_needs_update, $pbs_include_tree) = Verify_C_FileDigest($fil
 
 #~ PrintDebug "'$dependency_file_name' => $dependency_file_needs_update\n" ;
 
-my $signature = PBS::Warp1_5::GetWarpSignature([$file_to_depend], $tree->{__PBS_CONFIG}) ;
-my $unsynchronized_dependency_file_name = "${dependency_file_name}_$signature" ;
+# the commented lines would make the dependency cache depend on the PBS run config
+# although it is not wrong, it is overkill
+#~ my $signature = PBS::Warp::GetWarpSignature([$file_to_depend], $tree->{__PBS_CONFIG}) ;
+#~ my $unsynchronized_dependency_file_name = "${dependency_file_name}_$signature" ;
+
+my $unsynchronized_dependency_file_name = "${dependency_file_name}_unsynchronized" ;
 
 if($dependency_file_needs_update)
 	{
@@ -850,7 +855,7 @@ if($depended)
 		, SOURCE_DIRECTORIES => $tree->{__PBS_CONFIG}{SOURCE_DIRECTORIES}
 		} ;
 	
-	my ($nodes, $node_names, $insertion_file_names) = PBS::Warp1_5::WarpifyTree1_5(\%depend_nodes, $global_pbs_config) ;
+	my ($nodes, $node_names, $insertion_file_names) = PBS::Warp::Warp1_5::WarpifyTree1_5(\%depend_nodes, $global_pbs_config) ;
 
 	$include_tree_dump .=  Data::Dumper->Dump([$global_pbs_config], ['global_pbs_config']) ;
 	$include_tree_dump .= "\n" ;
@@ -871,7 +876,7 @@ if($depended)
 	$include_tree_dump .= "\n" ;
 	}
 	
-	my $signature = PBS::Warp1_5::GetWarpSignature([$file_to_depend], $tree->{__PBS_CONFIG}) ;
+	my $signature = PBS::Warp::GetWarpSignature([$file_to_depend], $tree->{__PBS_CONFIG}) ;
 	
 	PBS::Digest::WriteDigest
 		(

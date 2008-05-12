@@ -180,12 +180,12 @@ if(defined $node)
 		print ERROR "Caught unexpected exception from Build::NodeBuilder::BuildNode:\n$@" ;
 		}
 	
-	#~ if($pbs_config->{KEEP_PBS_BUILD_BUFFERS})
+	if($pbs_config->{KEEP_PBS_BUILD_BUFFERS})
 		{
 		# this is displayed on the screen
-		print STDOUT INFO "Build buffer: $redirection_file\n" ;
+		print STDOUT "Node: $node_name\n" ;
 		print STDOUT INFO "Shell Info: " . $shell->GetInfo() . "\n" ;
-		#~ print STDOUT "Node: $node_name\n" ;
+		print STDOUT INFO "Build buffer: $redirection_file\n" ;
 		}
 		
 	#stop redirecting to a file

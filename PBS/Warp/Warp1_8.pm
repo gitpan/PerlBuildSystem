@@ -14,7 +14,7 @@ our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw() ;
-our $VERSION = '0.02' ;
+our $VERSION = '0.04' ;
 
 #-------------------------------------------------------------------------------
 
@@ -34,7 +34,9 @@ use Digest::MD5 qw(md5_hex) ;
 use Time::HiRes qw(gettimeofday tv_interval) ;
 
 
+use constant RUN_NOT_NEEDED => -1 ;
 use constant RUN_IN_NORMAL_MODE => 0 ;
+use constant RUN_IN_WARP_MODE => 1 ;
 
 #-------------------------------------------------------------------------------
 
@@ -42,24 +44,24 @@ sub WarpPbs
 {
 my ($targets, $pbs_config, $parent_config) = @_ ;
 
-my $warp_signature = PBS::Warp::GetWarpSignature($targets, $pbs_config) ;
-my $warp_path = $pbs_config->{BUILD_DIRECTORY} ;
-my $warp_file = "$warp_path/Pbsfile_$warp_signature.warp1_8.pl" ;
+my ($warp_signature) = PBS::Warp::GetWarpSignature($targets, $pbs_config) ;
+my $warp_path = $pbs_config->{BUILD_DIRECTORY} . '/warp1_8';
+my $warp_file = "$warp_path/Pbsfile_$warp_signature.pl" ;
 
 $PBS::pbs_run_information->{WARP_1_8}{FILE} = $warp_file ;
 PrintInfo "Warp file name: '$warp_file'\n" if defined $pbs_config->{DISPLAY_WARP_FILE_NAME} ;
 
 my ($run_in_warp_mode, $nodes, $number_of_removed_nodes, $warp_configuration) = CheckMd5File($targets, $pbs_config) ;
 
-my $t0_warp_check ;
 my $t0_warp = [gettimeofday];
+my $t0_warp_check = $t0_warp ;
 
-# use filewatching or default MD5 checking
-my $IsFileModified = RunUniquePluginSub($pbs_config, 'GetWatchedFilesChecker', $pbs_config, $warp_signature, $nodes) ;
+my @build_result ;
 
-# skip all tests if nothing is modified
-if($run_in_warp_mode && defined $IsFileModified  && '' eq ref $IsFileModified  && 0 == $IsFileModified )
+if($run_in_warp_mode == RUN_NOT_NEEDED)
 	{
+	PrintInfo("Warp: Up to date.\n") ;
+	
 	if($pbs_config->{DISPLAY_WARP_TIME})
 		{
 		my $warp_verification_time = tv_interval($t0_warp_check, [gettimeofday]) ;
@@ -71,14 +73,9 @@ if($run_in_warp_mode && defined $IsFileModified  && '' eq ref $IsFileModified  &
 		$PBS::pbs_run_information->{WARP_1_8}{TOTAL_TIME} = $warp_total_time ;
 		}
 		
-	PrintInfo("Warp: Up to date.\n") ;
 	return (BUILD_SUCCESS, "Warp: Up to date", {READ_ME => "Up to date warp doesn't have any tree"}, $nodes) ;
 	}
-
-$IsFileModified ||= \&PBS::Digest::IsFileModified ;
-my @build_result ;
-
-if($run_in_warp_mode)
+elsif ($run_in_warp_mode == RUN_IN_WARP_MODE)
 	{
 	if($number_of_removed_nodes)
 		{
@@ -144,6 +141,11 @@ if($run_in_warp_mode)
 				  $targets, $new_dependency_tree, $nodes
 				, $pbs_config, $warp_configuration
 				) ;
+				
+			# force a refresh after we build files and generated events
+			# TODO: note that the synch should be by file not global or a single failure 
+			#             would force a complete rebuild
+			RunUniquePluginSub($pbs_config, 'ClearWatchedFilesList', $pbs_config, $warp_signature) ;
 			}
 			
 		@build_result = ($build_result, $build_message, $new_dependency_tree, $nodes) ;
@@ -154,13 +156,12 @@ if($run_in_warp_mode)
 		@build_result = (BUILD_SUCCESS, "Warp: Up to date", {READ_ME => "Up to date warp doesn't have any tree"}, $nodes) ;
 		}
 	}
-else
+elsif($run_in_warp_mode == RUN_IN_NORMAL_MODE)
 	{
 	#eurk hack we could dispense with!
 	# this is not needed but the subpses are travesed an extra time
 	
 	#TODO  since the md5 are not kept into the warp files anymore, a single generation is enough
-	
 	
 	my ($dependency_tree_snapshot, $inserted_nodes_snapshot) ;
 	
@@ -227,14 +228,9 @@ else
 			
 	@build_result = ($build_result, $build_message, $dependency_tree, $inserted_nodes) ;
 	}
-
-if($build_result[0]) 
+else
 	{
-	# build_OK
-	
-	# force a refresh after we build files and generated events
-	# note that the synch should be by file not global
-	RunUniquePluginSub($pbs_config, 'ClearWatchedFilesList', $pbs_config, $warp_signature) ;
+	die "Unexepected run type in Warp 1.8\n" ;
 	}
 	
 return(@build_result) ;
@@ -271,11 +267,16 @@ my ($targets, $dependency_tree, $inserted_nodes, $pbs_config, $warp_configuratio
 
 my $t0_md5_generate =  [gettimeofday] ;
 
-my $warp_signature = PBS::Warp::GetWarpSignature($targets, $pbs_config) ;
-my $warp_path = $pbs_config->{BUILD_DIRECTORY} ;
+my ($warp_signature, $warp_signature_source) = PBS::Warp::GetWarpSignature($targets, $pbs_config) ;
+my $warp_path = $pbs_config->{BUILD_DIRECTORY} . '/warp1_8';
 mkpath($warp_path) unless(-e $warp_path) ;
 
-my $md5_file= "$warp_path/Pbsfile_$warp_signature.warp1_8.md5.pl" ;
+(my $original_arguments = $pbs_config->{ORIGINAL_ARGV}) =~ s/[^0-9a-zA-Z_-]/_/g ;
+my $warp_info_file= "$warp_path/Pbsfile_${warp_signature}_${original_arguments}" ;
+open(WARP_INFO, ">", $warp_info_file) or die qq[Can't open $warp_info_file: $!] ;
+close(WARP_INFO) ;
+
+my $md5_file= "$warp_path/Pbsfile_${warp_signature}_md5.pl" ;
 open(MD5, ">", $md5_file) or die qq[Can't open $md5_file: $!] ;
 
 my %pbsfile_md5s = %$warp_configuration ;
@@ -353,11 +354,11 @@ sub CheckMd5File
 {
 my ($targets, $pbs_config) = @_ ;
 
-my $warp_path      = $pbs_config->{BUILD_DIRECTORY} ;
-my $warp_signature = PBS::Warp::GetWarpSignature($targets, $pbs_config) ;
-my $node_md5_file  = "$warp_path/Pbsfile_$warp_signature.warp1_8.md5.pl" ;
+my ($warp_signature) = PBS::Warp::GetWarpSignature($targets, $pbs_config) ;
+my $warp_path      = $pbs_config->{BUILD_DIRECTORY} . '/warp1_8';
+my $node_md5_file  = "$warp_path/Pbsfile_${warp_signature}_md5.pl" ;
 
-my $run_in_warp_mode = 1 ;
+my $run_in_warp_mode = RUN_IN_WARP_MODE ;
 
 # md5 checking time
 my $t0 =  [gettimeofday] ;
@@ -372,7 +373,7 @@ my ($version, $pbsfile_md5s, $node_md5s) = do $node_md5_file ;
 
 if(! defined $pbsfile_md5s || ! defined $node_md5s)
 	{
-	PrintWarning2 "Error in Warp file'$node_md5_file'!\n" ;
+	PrintWarning "Error in Warp file'$node_md5_file'!\n" ;
 	return(RUN_IN_NORMAL_MODE) ;
 	}
 
@@ -382,13 +383,13 @@ $PBS::pbs_run_information->{WARP_1_8}{NODES_IN_DEPENDENCY_GRAPH} = $number_of_fi
 
 unless(defined $version)
 	{
-	PrintWarning2("Warp: bad version (undefined). Warp file needs to be rebuilt.\n") ;
+	PrintWarning("Warp: bad version (undefined). Warp file needs to be rebuilt.\n") ;
 	return(RUN_IN_NORMAL_MODE) ;
 	}
 	
 unless($version == $VERSION)
 	{
-	PrintWarning2("Warp: bad version. Warp file needs to be rebuilt.\n") ;
+	PrintWarning("Warp: bad version. Warp file needs to be rebuilt.\n") ;
 	return(RUN_IN_NORMAL_MODE) ;
 	}
 
@@ -415,7 +416,7 @@ for my $node_name (keys %$node_md5s)
 	#TODO: do not regenerate. pbs is interrested in knowing if the node exists to link to it
 	# onl y regenerate if the data needs to be accessed (and even then, just compute the data without regenerating)
 	
-	# TODO: would the format below ve fast enough to load
+	# TODO: would the format below be fast enough to load?
 	$nodes->{$node_name}{__NAME} = $node_name ;
 	$nodes->{$node_name}{__BUILD_NAME} =  $node_md5s->{$node_name}{__BUILD_NAME} ;
 	$nodes->{$node_name}{__MD5} =  $node_md5s->{$node_name}{__MD5} ;
@@ -424,7 +425,6 @@ for my $node_name (keys %$node_md5s)
 	$nodes->{$node_name}{__DEPENDED}++ ;
 	$nodes->{$node_name}{__CHECKED}++ ; # pbs will not check any node (and its subtree) which is marked as checked
 	$nodes->{$node_name}{__PBS_CONFIG} = $global_pbs_config unless exists $nodes->{$node_name}{__PBS_CONFIG} ;
-	
 	
 	# TODO: if this information doesn't exists in warp 1.6 and it is done for backward compatibility only, reuse a reference to save memory
 	$nodes->{$node_name}{__INSERTED_AT} =
@@ -439,93 +439,92 @@ for my $node_name (keys %$node_md5s)
 	
 PrintInfo(sprintf("node regeneration time %0.2f s.\n", tv_interval($t_node_regeneration, [gettimeofday]))) if($pbs_config->{DISPLAY_WARP_TIME}) ;
 
+# use filewatching or default MD5 checking
+# TODO: we don't need real nodes to verify md5 with the watch server, only to register them
+#            if we were already registred, we wouldn't need to recreate the nodes
+my $IsFileModified = RunUniquePluginSub($pbs_config, 'GetWatchedFilesChecker', $pbs_config, $warp_signature, $nodes) ;
+
+if(defined $IsFileModified  && '' eq ref $IsFileModified  && 0 == $IsFileModified )
+	{
+	# nothing is modified
+	return (RUN_NOT_NEEDED) ;
+	}
+	
+$IsFileModified ||= \&PBS::Digest::IsFileModified ;
+
 $t0 = [gettimeofday] ;
-
 my (%nodes_not_matching, %nodes_removed) ;
+my $node_verified = 0 ;
 
-my $node_verified = 1 ;
 for my $node_name (keys %$node_md5s)
 	{
-	#~ unless($pbs_config->{DISPLAY_WARP_CHECKED_NODES})	
-		#~ {
-		#~ #this takes time
-		#~ PrintInfo "\r$node_verified" ;
-		#~ }
-	
 	$node_verified++ ;
+	PrintInfo "$node_verified\r" unless $node_verified %100 ;
 	
 	if
 		(
-		   ! defined $node_md5s->{$node_name}{__MD5}
-		|| PBS::Digest::IsFileModified($pbs_config, $node_md5s->{$node_name}{__BUILD_NAME}, $node_md5s->{$node_name}{__MD5})
+		   defined $node_md5s->{$node_name}{__MD5}
+		&& 
+			(
+			     $node_md5s->{$node_name}{__MD5} eq 'VIRTUAL'
+			|| ! $IsFileModified->($pbs_config, $node_md5s->{$node_name}{__BUILD_NAME}, $node_md5s->{$node_name}{__MD5})
+			)
 		)
+		{
+	        PrintDebug "Warp checking: '$node_name'.\n" if($pbs_config->{DISPLAY_WARP_CHECKED_NODES}) ;
+		}
+	else
 		{
 		$nodes_not_matching{$node_name}++ ;
 		$nodes_removed{$node_name}++ ;
 		delete $nodes->{$node_name} ;
 		
-		if($pbs_config->{DISPLAY_WARP_CHECKED_NODES})	
-			{
-			PrintDebug "Warp checking: '$node_name', MD5 missmatch.\n" ;
-			}
-		}
-	else
-		{
-		if($pbs_config->{DISPLAY_WARP_CHECKED_NODES})	
-			{
-			PrintDebug "Warp checking: '$node_name'.\n" ;
-			}
+		PrintDebug "Warp checking: '$node_name', MD5 missmatch.\n" if($pbs_config->{DISPLAY_WARP_CHECKED_NODES}) ;
 		}
 	}
 
-my $warp_node_path = $pbs_config->{BUILD_DIRECTORY} . "/warp_${warp_signature}" ;
+my $warp_node_path = $pbs_config->{BUILD_DIRECTORY} . "/warp1_8/warp_${warp_signature}" ;
 
 for my $node_name (keys %nodes_not_matching)
 	{
 	#TODO; optimization, do this only if the node hasn't been removed by a dependency
 	# next if exists $nodes_removed{$file}++ ;
 	
-	my $uniq_file =  md5_hex($node_name) ;
-	my $warp_file = "$warp_node_path/Pbsfile_$uniq_file.warp1_8.pl" ;
+	my ($node_warp_directory, $node_warp_full_path) = GetNodeWarpLocation($node_name , $warp_node_path) ;
 	
 	# load list
-	my ($node_version, $node_dependents ) = do $warp_file ;
+	my ($node_version, $node_dependents ) = do $node_warp_full_path ;
 	
 	if(defined $node_dependents)
 		{
-		for my $dependent (@{$node_dependents->{__DEPENDENT}})
+		if(defined $node_version)
 			{
-			$nodes_removed{$dependent}++ ;
-			delete $nodes->{$dependent} ; #! 
+			if($node_version == $VERSION)
+				{
+				for my $dependent (@{$node_dependents->{__DEPENDENT}})
+					{
+					$nodes_removed{$dependent}++ ;
+					delete $nodes->{$dependent} ;
+					}
+				}
+			else
+				{
+				PrintWarning("Warp: bad version for node '$node_name' ['$node_warp_full_path']. Warp file needs to be rebuilt.\n") ;
+				$run_in_warp_mode = RUN_IN_NORMAL_MODE ;
+				}
+			}
+		else
+			{
+			PrintWarning("Warp: bad version (undefined) for node '$node_name' ['$node_warp_full_path']. Warp file needs to be rebuilt.\n") ;
+			$run_in_warp_mode = RUN_IN_NORMAL_MODE ;
 			}
 		}
 	else
 		{
-		PrintWarning "node warp '$warp_file' for node '$node_name' not found! Can't run in Warp mode.\n" ;
-		$run_in_warp_mode = 0 ;
-		}
-		
-	unless(defined $node_version)
-		{
-		PrintWarning2("Warp: bad version (undefined) for node '$node_name'. Warp file needs to be rebuilt.\n") ;
-		$run_in_warp_mode = 0 ;
-		}
-		
-	unless($version == $VERSION)
-		{
-		PrintWarning2("Warp: bad version for node '$node_name'. Warp file needs to be rebuilt.\n") ;
-		$run_in_warp_mode = 0 ;
+		PrintWarning "Warp: warp for node '$node_name' ['$node_warp_full_path'] not found! Can't run in Warp mode.\n" ;
+		$run_in_warp_mode = RUN_IN_NORMAL_MODE ;
 		}
 	}
-
-#~ if($pbs_config->{DISPLAY_WARP_TRIGGERED_NODES})	
-	#~ {
-	#~ PrintInfo "\rNodes: $node_verified verified: $node_existed\n" ;
-	#~ }
-#~ else
-	#~ {
-	#~ PrintInfo "\r" ;
-	#~ }
 
 my $number_of_md5_mismatch  = scalar(keys %nodes_not_matching) ;
 my $number_of_removed_nodes = scalar(keys %nodes_removed) ;
@@ -546,12 +545,11 @@ sub GenerateNodesWarp
 {
 my ($targets, $dependency_tree, $inserted_nodes, $pbs_config, $warp_configuration) = @_ ;
 
-
 # generate a warp file per node (this could be faster with a DB
 my $t0_single_warp_generate =  [gettimeofday] ;
 
-my $warp_signature = PBS::Warp::GetWarpSignature($targets, $pbs_config) ;
-my $warp_path = $pbs_config->{BUILD_DIRECTORY} . "/warp_${warp_signature}" ;
+my ($warp_signature) = PBS::Warp::GetWarpSignature($targets, $pbs_config) ;
+my $warp_path = $pbs_config->{BUILD_DIRECTORY} . "/warp1_8/warp_${warp_signature}" ;
 mkpath($warp_path) unless(-e $warp_path) ;
 
 #~ my $node_generated = 1 ;
@@ -562,20 +560,14 @@ my %nodes_needing_regeneration ;
 
 for my $node (values %$inserted_nodes)
 	{
-	#~ PrintInfo "\r$node_generated " ;
-	#~ $node_generated++ ;
+	my $node_name = $node->{__NAME} ;
+	my ($node_warp_directory, $node_warp_full_path) = GetNodeWarpLocation($node_name , $warp_path) ;
 
-	my $uniq_file =  md5_hex($node->{__NAME}) ;
-	my $warp_file= "$warp_path/Pbsfile_$uniq_file.warp1_8.pl" ;
-	
-	if(! -e $warp_file || exists $node->{__INSERTED_AT}{INSERTION_TIME}) #only new nodes are those that didn't match their md5
+	if(! -e $node_warp_full_path || exists $node->{__INSERTED_AT}{INSERTION_TIME}) #only new nodes are those that didn't match their md5
 		{
-		$nodes_regenerated{$node->{__NAME}}++ ;
+		$nodes_needing_regeneration{$node->{__NAME}} = $node ;
 		
-		my @dependents = GetAllDependents($node->{__NAME}, $inserted_nodes) ;
-		#~ my @dependents_build_name = map {$inserted_nodes->{$_}{__BUILD_NAME}} @dependents ;
-		
-		GenerateNodeWarp($node, \@dependents, $warp_file) ;
+		#what happends if the build fails? can we still use the md5 file
 		
 		#~ !!! if a node is changed, it might get more or less dependencies
 		#~ !!! since we generate warp files that contain dependencies,
@@ -594,49 +586,42 @@ for my $node (values %$inserted_nodes)
 for my $node (values %nodes_needing_regeneration)
 	{
 	my $node_name = $node->{__NAME} ;
-	#~ print "* $node->{__NAME}\n" ;
 	
 	next if exists $nodes_regenerated{$node_name} ;
 	
 	$nodes_regenerated{$node_name}++ ;
 	
 	my @dependents = GetAllDependents($node_name, $inserted_nodes) ;
-	#~ my @dependents_build_name = map {$inserted_nodes->{$_}{__BUILD_NAME}} @dependents ;
 	
-	my $uniq_file =  md5_hex($node_name) ;
-	my $warp_file= "$warp_path/Pbsfile_$uniq_file.warp1_8.pl" ;
-	
-	GenerateNodeWarp($node, \@dependents, $warp_file) ;
+	GenerateNodeWarp($node, \@dependents, $warp_path) ;
 	}
 
 my $number_of_node_warp = scalar (keys %nodes_regenerated) ;
 my $single_warp_generation_time = tv_interval($t0_single_warp_generate, [gettimeofday]) ;
 
-PrintInfo(sprintf("single node warp generation time: %0.2f s. [$number_of_node_warp]\n", $single_warp_generation_time)) ;
+PrintInfo(sprintf("Single node warp generation time: %0.2f s. [$number_of_node_warp]\n", $single_warp_generation_time)) ;
 }
+
+#-------------------------------------------------------------------------------------------------------
 
 sub GenerateNodeWarp
 {
-my ($node, $dependents, $warp_file) = @_ ;
+
+my ($node, $dependents, $warp_path) = @_ ;
+
+my $node_name = $node->{__NAME} ;
+
+my ($node_warp_directory, $node_warp_full_path) = GetNodeWarpLocation($node_name , $warp_path) ;
+
+mkpath($node_warp_directory ) ;
 
 my $node_dump =
 	{
-	'__NAME'       => $node->{__NAME}, # needed ?
-	'__BUILD_NAME' => $node->{__BUILD_NAME}, # needed ?
-	'__DEPENDENT'  => [@$dependents],
-	'__MD5'        => $node->{__MD5}, # needed ?
-	
-	# can we eliminate this?
-	'__INSERTED_AT' => 
-		{
-		'INSERTION_RULE' => '325.objects',
-		'INSERTING_NODE' => './pbsfile_55/325.objects',
-		'INSERTION_FILE' => '4'
-		},
+	'__NAME'       => $node_name, # not needed but informative
+	'__DEPENDENT'  => $dependents,
 	} ;
 
-# todo: one line with write_file
-open(WARP, ">", $warp_file) or die qq[Can't open $warp_file: $!] ;
+open(WARP, ">", $node_warp_full_path) or die qq[Can't open $node_warp_full_path: $!] ;
 
 print WARP Data::Dumper->Dump([$node_dump], ['node']) ;
 print WARP Data::Dumper->Dump([$VERSION], ['version']) ;
@@ -647,12 +632,36 @@ close(WARP) ;
 
 #-------------------------------------------------------------------------------------------------------
 
+sub GetNodeWarpLocation
+{
+my ($node_name, $warp_path) = @_ ;
+
+my ($volume, $node_warp_directory, $file) = File::Spec->splitpath($node_name);
+
+# data for files with full path get in the appropriate place under the warp directory
+if(File::Spec->file_name_is_absolute($node_name))
+	{
+	$node_warp_directory = 'ROOT/' . $node_warp_directory ;
+	}
+	
+$node_warp_directory = "$warp_path/$node_warp_directory"  ;
+
+return($node_warp_directory, "$node_warp_directory/$file.warp_1_8.pl") ;
+}
+
+#-------------------------------------------------------------------------------------------------------
+
+use Memoize;
+memoize('GetDependents');
+
 sub GetAllDependents
 {
 my($node, $inserted_nodes) = @_ ;
 
 return(GetDependents($node, $inserted_nodes)) ;
 }
+
+#-------------------------------------------------------------------------------------------------------
 
 sub GetDependents
 {
@@ -676,10 +685,12 @@ if(exists $inserted_nodes->{$node}{__XDEPENDENT})
 
 my %dependents = map{ $_ => 1} @dependents ;
 
-# $inserted_nodes->{$node}{__ALL_DEPENDENT} = \%dpendents ... could time optimize vs memory
+# $inserted_nodes->{$node}{__ALL_DEPENDENT} = \%dependents ... could time optimize vs memory
 
 return(keys %dependents) ;
 }
+
+#-------------------------------------------------------------------------------------------------------
 
 {
 my $GenerateFirstLevelDependents_done = 0 ;

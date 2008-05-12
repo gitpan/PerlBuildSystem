@@ -325,10 +325,16 @@ if(-e $Pbsfile || defined $pbs_config->{PBSFILE_CONTENT})
 	$sub_config = PBS::Config::GetPackageConfig($load_package) ; 
 	my $rules   = PBS::Rules::GetPackageRules($load_package) ; 
 	
+        my $rules_namespaces = join ', ', @rule_namespaces ;
+	my $config_namspaces = join ', ', @config_namespaces ;
+	
 	if($user_build && (! defined $pbs_config->{NO_USER_BUILD}) )
 		{
-		PrintInfo("Using user defined Build().\n") unless $pbs_config->{DISPLAY_NO_STEP_HEADER} ;
-		
+                unless($pbs_config->{DISPLAY_NO_STEP_HEADER})
+                	{
+			PrintInfo("User Build(). package: $package, rules $rules_namespaces, config: $config_namspaces.\n") ;
+			}
+											
 		($build_result, $build_message)
 			= $user_build->
 				(
@@ -350,14 +356,6 @@ if(-e $Pbsfile || defined $pbs_config->{PBSFILE_CONTENT})
 		}
 	else
 		{
-		my $rules_namespaces = join ', ', @rule_namespaces ;
-		my $config_namspaces = join ', ', @config_namespaces ;
-		
-		unless($pbs_config->{DISPLAY_NO_STEP_HEADER})
-			{
-			PrintInfo("No user defined [$package] Build(), using DefaultBuild() with [$rules_namespaces] rules and [$config_namspaces] configs.\n") ;
-			}
-			
 		if($pbs_config->{DISPLAY_COMPACT_DEPEND_INFORMATION})
 			{
 			my $number_of_nodes = scalar(keys %$inserted_nodes) ;
@@ -475,7 +473,7 @@ for my $source_name (@{[@_]})
 		
 	my $t0 = [gettimeofday];
 	
-	my $global_package_dependency = shift || 1 ; # if set, the use module becomes adependency for all the package nodes
+	my $global_package_dependency = shift || 1 ; # if set, the use module becomes a dependency for all the package nodes
 	
 	my $pbs_config = PBS::PBSConfig::GetPbsConfig($package) ;
 	my $located_source_name ;
@@ -508,9 +506,9 @@ for my $source_name (@{[@_]})
 	
 	unless(defined $located_source_name)
 		{
-		my $pathes = join ', ', @{$pbs_config->{LIB_PATH}} ;
+		my $paths = join ', ', @{$pbs_config->{LIB_PATH}} ;
 		
-		die  ERROR("Can't locate '$source_name' in PBS libs [$pathes] @ $file_name:$line.\n")  ;
+		die  ERROR("Can't locate '$source_name' in PBS libs [$paths] @ $file_name:$line.\n")  ;
 		}
 	
 	$pbs_use_level++ ; # indent the PbsUse output to make the hierachy more visible
@@ -659,7 +657,7 @@ die "" if $@ ;
 
 $type .= ': ' unless $type eq '' ;
 
-unless(defined $result && $result == 1)
+if((!defined $result) && ($result != 1))
 	{
 	$result ||= 'undef' ;
 	die "$type$file didn't return OK [$result] (did you forget '1 ;' at the last line?)\n"  ;

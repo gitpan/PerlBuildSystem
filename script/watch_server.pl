@@ -19,7 +19,7 @@ This utility uses the native file watching mechanism  (win32 or inotify) to spee
 I<watch_server> opens a socket on port 12001 and waits for PBS to contact it. For PBS to use this you must
 specify I<--use_watch_server> and I<--warp>. PBS registers the files to watch and doesn't use MD5 any more
 to verify the warp tree. On linux, the difference is minimal. The improvement is more spectacular on Win32 machines
-where the file caching policy is not as good.
+where the file caching policy is poor.
 
  We are planning to do all the configuration through zeroconf. and use the watch server to speed up more than
  warp runs.
@@ -42,12 +42,14 @@ use POSIX qw(strftime WNOHANG);
 use Time::HiRes qw(gettimeofday tv_interval) ;
 use Data::TreeDumper ;
 
-our $VERSION = '0.6' ;
+our $VERSION = '0.8' ;
 
 my $separator = "_stop_" ;
 
 my $modified_files = {} ;
 my $deleted_files = {} ;
+my $files_that_could_not_be_watched = {} ;
+	
 my $watcher ; # uses inotify on linux and the directory notification mechanism on windows
 
 # load a platform specific watch componant
@@ -101,7 +103,7 @@ sub Synch
 
 my ($watcher, $socket) = @_ ;
 
-$watcher->Synch() ;
+$watcher->Synch() ; # $watcher has reference to $modified_files and $deleted_files
 
 # synchronize $modified_files_ref with rest of system
 for my $client_id (keys %$clients)
@@ -129,6 +131,17 @@ for my $client_id (keys %$clients)
 			
 		$client->{MODIFIED_FILES}{$deleted_file} = WATCH_TYPE_FILE if(exists $client->{FILES}{$deleted_file}) ;
 		}
+		
+	for my $file_that_could_not_be_watched (keys %$files_that_could_not_be_watched)
+		{
+		if($socket)
+			{
+			print $socket "file that could not be watched '$file_that_could_not_be_watched'\n" ;
+			print "file that could not be watched '$file_that_could_not_be_watched'\n" ;
+			}
+			
+		$client->{MODIFIED_FILES}{$file_that_could_not_be_watched} = WATCH_TYPE_DIRECTORY if(exists $client->{FILES}{$file_that_could_not_be_watched}) ;
+		}
 	}
 
 %$modified_files = () ;
@@ -147,11 +160,14 @@ while (!$quit)
 	$connection_index++ ;
 	
 	my $now_string = strftime "%a %b %e %H:%M:%S %Y", gmtime ;
-	print "********************** Connection $connection_index $now_string.**********************\n" ;
+	print "************** Connection $connection_index $now_string **************\n" ;
 	print "modified files: " . scalar(keys %$modified_files) . "\n" ;
 	print "deleted files: " . scalar(keys %$deleted_files) . "\n" ;
 	
+	Synch($watcher) ;
+	
 	interact($connection);
+	
 	print(sprintf("time: %0.2f s.\n", tv_interval ($t0, [gettimeofday]))) ;
 	print "\n" ;
 	}
@@ -172,30 +188,35 @@ if(defined (my $command_and_args = <$socket>))
 		{
 		/^WATCH_FILES$/i and do
 			{
+			print "command: WATCH_FILES\n" ;
 			WatchFiles($socket, $watcher, @args) ;
 			last ;
 			} ;
 			
 		/^GET_MODIFIED_FILES_LIST$/i and do
 			{
+			print "command: GET_MODIFIED_FILES_LIST\n" ;
 			GetModifiedFilesList($socket, $watcher, @args) ;
 			last ;
 			} ;
 			
 		/^CLEAR_MODIFIED_FILES_LIST$/i and do
 			{
+			print "command: CLEAR_MODIFIED_FILES_LIST\n" ;
 			ClearModifiedFilesList($socket, $watcher, @args) ;
 			last ;
 			} ;
 			
 		/^DUMP_STATE$/i and do
 			{
+			print "command: DUMP_STATE\n" ;
 			DumpState($socket, $watcher, @args) ;
 			last ;
 			} ;
 			
 		/^SYNCH_DUMP$/i and do
 			{
+			print "command: SYNCH_DUMP\n" ;
 			Synch($watcher, $socket) ;
 			last ;
 			} ;
@@ -212,7 +233,6 @@ close $socket ;
 
 sub WatchFiles
 {
-# adds 
 # return 0 on failure and 1 on success
 
 my ($socket, $watcher, $id, @files) = @_ ;
@@ -229,7 +249,7 @@ unless(defined $id && $id ne '')
 
 print "Watching files for '$id'\n" ;
 
-# we try to register all files, files that can't be watched are given  a special 'alway not up to date' state
+# we try to register all files, files that can't be watched are given  a special 'always not up to date' state
 $clients->{$id} = {} ; # register client
 my $client = $clients->{$id} ; 
 
@@ -242,8 +262,14 @@ for my $file (@files)
 		# already watched, but might be deleted
 		for my $file (keys %$deleted_files)
 			{
-			my $watch_added = $watcher->WatchFile($file) ;
-			delete $deleted_files->{$file} if($watch_added) ;
+			if($watcher->WatchFile($file))
+				{
+				delete $deleted_files->{$file} ;
+				}
+			else
+				{
+				$files_that_could_not_be_watched->{$file} = WATCH_TYPE_DIRECTORY ;
+				}
 			}
 		}
 	else
@@ -254,27 +280,27 @@ for my $file (@files)
 			
 		unless($watch_added)
 			{
-			$deleted_files->{$file} = WATCH_TYPE_FILE ;
+			$files_that_could_not_be_watched->{$file} = WATCH_TYPE_DIRECTORY ;
 			$new_non_watchable_files++ ;
 			
-			my $system_error = $! ;
-			chomp($system_error) ;
+			my $system_error = chomp($!) ;
 			
 			print "Error while adding watcher for '$file': $system_error\n" ;
 			}
 			
 		$watched_files->{$file}++ ;
-		$client->{FILES}{$file}++ ;
 		}
 		
+	$client->{FILES}{$file}++ ;
+	
 	#~ print "Added Watcher for '$file' from '$pbs'\n" ;
 	}
 	
 my $number_of_file = scalar(@files) ;
-print "Watching $number_of_file files ($new_non_watchable_files non watchable) for '$id'. $new_files new files.\n" ;
-print $socket join($separator, '1', "$number_of_file files added succesfully") ;
+my $message = "Watching $number_of_file files ($new_non_watchable_files non watchable). $new_files new files" ;
 
-print "Watching " . scalar(keys %$watched_files) . " files.\n" ;
+print "'$id': $message\n" ;
+print $socket join($separator, '1', $message) ;
 }
 
 #--------------------------------------------------------------
@@ -316,7 +342,8 @@ if(exists $clients->{$id})
 		
 	print $socket join($separator, '1', $number_of_watches, $number_of_modified_files, $packed_modified_files) ;
 	print "$number_of_modified_files modified files, $number_of_watches watches\n" ;
-	
+	#todo: pass and display the number of  unregistrable files
+
 	$client->{ACCESS}++ ;
 	}
 else
@@ -331,13 +358,15 @@ for my $file (keys %$deleted_files)
 	my $watch_added = $watcher->WatchFile($file) ;
 	delete $deleted_files->{$file} if($watch_added) ;
 	}
+
+#todo: could try to register the unregistrable files again
 }
 
 #--------------------------------------------------------------
 
 sub ClearModifiedFilesList
 {
-# this is acalled by PBS when it has finished building. we would otherwise consider the files
+# this is called by PBS when it has finished building. we would otherwise consider the files
 # pbs has regenerated to be modified.
 
 my ($socket, $watcher, $id, @commands) = @_ ;
@@ -356,8 +385,12 @@ print "ClearModifiedFilesList for '$id'\n" ;
 if(exists $clients->{$id})
 	{
 	Synch($watcher) ;
+	Synch($watcher) ; # borrrrrrrring! some timing problem with the notification system are hard lived
 	
 	my $client = $clients->{$id} ;
+	
+	print "cleared " . scalar(keys %{$client->{MODIFIED_FILES}}) . " modified flags.\n" ;
+	
 	$client->{MODIFIED_FILES} = {} ;
 	$client->{ACCESS}++ ;
 	
@@ -375,6 +408,8 @@ for my $file (keys %$deleted_files)
 	my $watch_added = $watcher->WatchFile($file) ;
 	delete $deleted_files->{$file} if($watch_added) ;
 	}
+
+#todo: could try to register the unregistrable files again
 }
 
 #--------------------------------------------------------------

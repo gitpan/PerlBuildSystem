@@ -7,13 +7,18 @@ MANIFEST
 META.yml
 README
 Todo.txt
-licence.txt
 
 script/pbs.pl
 script/build_server.pl
 script/watch_server.pl
 script/watch_client.pl
 script/create_pbs_binary.pl
+
+script/create_pbs_documentation.pl
+
+script/generate_project.pl
+script/find_deepest.pl
+script/remove_deepest.sh
 
 Plugins/PostPbs.pm
 Plugins/FileWatchClient.pm

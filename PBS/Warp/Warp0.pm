@@ -55,7 +55,9 @@ eval
 			, DEPEND_CHECK_AND_BUILD
 			) ;
 	} ;
-	
+
+die $@ if $@ ;
+
 return($build_result, $build_message, $dependency_tree, $inserted_nodes) ;
 }
 

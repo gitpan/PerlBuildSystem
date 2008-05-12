@@ -339,7 +339,7 @@ my $build = $class->new
 	
 	dist_version => GetVersionandRevisionFrom('PBS/FrontEnd.pm'),
 	
-	license => 'restrictive',
+	license => 'perl',
 	
 	requires => 
 		{
@@ -360,12 +360,13 @@ my $build = $class->new
 		'Data::Compare'       => '0',
 		'Test::Class'         => '0',
 		'Test::Cmd'           => '0',
-		#'Term::ProgressBar'   => '0',
 		'File::Spec'          => '0',
 		'File::Slurp'         => '0',
 		'IO::String'          => '0',
 		'File::Copy::Recursive' => '0',
-		
+		'Class::MethodMaker' => '0',
+	        'Term::ReadKey' => '0',
+
 		'Devel::Depend::Cpp'  => '0.08',
 		'Devel::Depend::Cl'   => '0.04',
 		
@@ -375,8 +376,8 @@ my $build = $class->new
 		#'Net::Telnet'         => '0',
 		#'Net::SSH::Perl'      => '0',
 		
-		#'Term::ANSIColor' => ?
-		#'Text::Balanced' => ?
+		#'Term::ANSIColor' => '0',
+		#'Text::Balanced' => '0',
 		},
 		
 	pm_files     => \%all_modules,
@@ -384,7 +385,7 @@ my $build = $class->new
 	
 	script_files => 'script/pbs.pl',
 	dist_author  => 'Khemir Nadim ibn Hamouda. <nadim@khemir.net>',
-	dist_abstract => 'build utility/modules in the same spirit as gmake',
+	dist_abstract => 'Build utility/modules in the same spirit as gmake',
 	);
 	
 $build->create_build_script;

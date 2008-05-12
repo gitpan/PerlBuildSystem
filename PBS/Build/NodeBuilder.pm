@@ -306,7 +306,7 @@ sub GetNodeRepositories
 {
 my $tree = shift ;
 
-my @repository_pathes ;
+my @repository_paths ;
 
 if($tree->{__NAME} =~ /^\./)
 	{
@@ -315,11 +315,11 @@ if($tree->{__NAME} =~ /^\./)
 	
 	for my $repository (@{$tree->{__PBS_CONFIG}->{SOURCE_DIRECTORIES}})
 		{
-		push @repository_pathes, CollapsePath("$repository/$target_path") ;
+		push @repository_paths, CollapsePath("$repository/$target_path") ;
 		}
 	}
 	
-return(@repository_pathes) ;
+return(@repository_paths) ;
 }
 
 #-------------------------------------------------------------------------------------------------------

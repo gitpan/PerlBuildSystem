@@ -698,7 +698,7 @@ for my $dependency (@dependencies)
 				
 				for(my $matching_rule_index = 0 ; $matching_rule_index < @$dependency_rules ; $matching_rule_index++)
 					{
-					my ($dependency_result) = $dependency_rules->[$matching_rule_index]{DEPENDER}->($dependency_name, $config, $inserted_nodes->{$dependency_name}, $inserted_nodes) ;
+					my ($dependency_result) = $dependency_rules->[$matching_rule_index]{DEPENDER}->($dependency_name, $config, $inserted_nodes->{$dependency_name}, $inserted_nodes, $dependency_rules->[$matching_rule_index]) ;
 					push @local_rules_matching, $matching_rule_index if($dependency_result->[0]) ;
 					}
 				
@@ -840,7 +840,7 @@ if($has_matching_non_subpbs_rules)
 			
 			for(my $matching_rule_index = 0 ; $matching_rule_index < @$dependency_rules ; $matching_rule_index++)
 				{
-				my ($dependency_result) = $dependency_rules->[$matching_rule_index]{DEPENDER}->($dependency, $config, $tree->{$dependency}, $inserted_nodes) ;
+				my ($dependency_result) = $dependency_rules->[$matching_rule_index]{DEPENDER}->($dependency, $config, $tree->{$dependency}, $inserted_nodes,  $dependency_rules->[$matching_rule_index]) ;
 				if($dependency_result->[0])
 					{
 					my $rule_info =  $dependency_rules->[$matching_rule_index]{NAME}

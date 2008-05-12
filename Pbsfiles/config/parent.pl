@@ -11,7 +11,8 @@
 
 =cut
 
-AddConfig OPTIMIZE_FLAG_1 => 'O3' ;
+AddConfig OPTIMIZE_FLAG_1 => 'O4';
+AddConfig OPTIMIZE_FLAG_1 => 'O3' ; 
 AddConfig OPTIMIZE_FLAG_2 => 'O3' ;
 AddConfig OPTIMIZE_FLAG_3 => 'xxx' ;
 AddConfig UNDEF_FLAG => undef ;

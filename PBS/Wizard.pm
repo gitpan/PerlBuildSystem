@@ -63,9 +63,9 @@ if($wizard ne '')
 			
 		unless(defined $located_source_name)
 			{
-			my $pathes = join ', ', @{$lib_paths} ;
+			my $paths = join ', ', @{$lib_paths} ;
 			
-			die ERROR("Can't locate '$wizard' in PBS libs [$pathes]\n")  ;
+			die ERROR("Can't locate '$wizard' in PBS libs [$paths]\n")  ;
 			}
 			
 		our $wizard_location = $located_source_name ;

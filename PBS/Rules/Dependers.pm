@@ -65,7 +65,7 @@ for (ref $depender_definition)
 	
 	/^CODE$/ and do
 		{
-		@depender_node_subs_and_types = ($depender_definition) ;
+		@depender_node_subs_and_types = GenerateDependerFromCode($depender_definition) ;
 		last ;
 		} ;
 		
@@ -76,6 +76,39 @@ for (ref $depender_definition)
 	}
 	
 return(@depender_node_subs_and_types) ;
+}
+
+#-------------------------------------------------------------------------------
+
+sub GenerateDependerFromCode
+{
+	
+# this code does almost nothing but rearrange the argument list so code dependers and
+# simplified dependers get their arguments in the same order
+
+my ($code_reference) = @_ ;
+
+my $depender_sub = 
+		sub 
+			{
+			my ($dependent, $config, $tree, $inserted_nodes, $rule_definition) = @_ ;
+			
+			my ($dependencies, $builder_override) ;
+			
+			($dependencies, $builder_override) = $code_reference->
+											(
+											  $dependent
+											, $config
+											, $tree
+											, $inserted_nodes
+											, undef # rule local
+											, undef # rule local
+											, $rule_definition
+											) ;
+			return($dependencies, $builder_override) ;
+			} ;
+	
+return($depender_sub) ;
 }
 
 #-------------------------------------------------------------------------------
@@ -239,12 +272,7 @@ else
 	$depender_sub = 
 		sub 
 			{
-			my $dependent      = shift ; 
-			my $config         = shift ;
-			my $tree           = shift ;
-			my $inserted_nodes = shift ;
-			
-			my $rule_definition = shift ; #usefull to display error messages
+			my ($dependent, $config, $tree, $inserted_nodes, $rule_definition) = @_ ;
 			
 			my ($dependencies, $builder_override) ;
 			

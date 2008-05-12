@@ -27,7 +27,7 @@ for my $rule (@$rule_references)
 	{
 	#~ print "meta running $rule->{NAME}\n" ;
 	
-	my ($dependency_result, $builder_override) = $rule->{DEPENDER}->($dependent, $config, $tree, $inserted_files) ;
+	my ($dependency_result, $builder_override) = $rule->{DEPENDER}->($dependent, $config, $tree, $inserted_files, $rule) ;
 	
 	my ($triggered, @dependencies) = @$dependency_result ;
 	

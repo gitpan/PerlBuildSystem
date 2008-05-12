@@ -19,7 +19,7 @@ our @ISA = qw(Exporter) ;
 our %EXPORT_TAGS = ('all' => [ qw() ]) ;
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } ) ;
 our @EXPORT = qw() ;
-our $VERSION = '0.43' ;
+our $VERSION = '0.44' ;
 
 use PBS::Config ;
 use PBS::PBSConfig ;
@@ -202,16 +202,21 @@ if(@$targets)
 			= PBS::Warp::WarpPbs($targets, $pbs_config, $parent_config) ;
 		} ;
 		
-	$build_success = 0 if($@ || $build_result != BUILD_SUCCESS) ;
-
-	if($@ && $@ !~ /BUILD_FAILED/)
+	if($@)
 		{
 		print STDERR $@ ;
 		}
+		
+	$build_result = BUILD_FAILED unless defined  $build_result;
+	
+	$build_success = 0 if($@ || ($build_result != BUILD_SUCCESS)) ;
+
 	}
 else
 	{
 	PrintError("No targets given on the command line!\n") ;
+	PBS::PBSConfigSwitches::DisplayUserHelp($pbsfile , 1, 0) ;
+		
 	$build_success = 0 ;
 	}
 
@@ -296,7 +301,7 @@ sub ParseSwitchesAndLoadPlugins
 {
 # This is a bit hairy since plugins might add switches that are accepted on the command line and in a prf and
 # the plugin path can be defined on the command line and in a prf!
-# We load the pbs config twice. Once to handle the pathes and the switches pertinent to plugin loading
+# We load the pbs config twice. Once to handle the paths and the switches pertinent to plugin loading
 # and once to "really" load the config.
 
 my ($pbs_config, $command_line_arguments) = @_ ;
@@ -384,7 +389,7 @@ if(!exists $pbs_config->{LIB_PATH} || ! @{$pbs_config->{LIB_PATH}})
 	{
 	my ($basename, $path, $ext) = File::Basename::fileparse(find_installed('PBS::PBS'), ('\..*')) ;
 	
-	my $distribution_library_path = $path . 'PBSLib' ;
+	my $distribution_library_path = $path . 'PBSLib/' ;
 	
 	if(-e $distribution_library_path )
 		{
@@ -438,7 +443,7 @@ unless(defined $pbs_config->{NO_PBS_RESPONSE_FILE})
 		elsif('HASH' eq ref $prf_config->{$key})
 			{
 			# commandline definitions and user definitions
-			if(! exists $pbs_config->{$key} || 0 == %{$pbs_config->{$key}})
+			if(! exists $pbs_config->{$key} || 0 == keys(%{$pbs_config->{$key}}))
 				{
 				$pbs_config->{$key} = $prf_config->{$key}
 				}
@@ -468,10 +473,7 @@ print <<EOH ;
 
 This is the Perl Build System, PBS, version $version
 
-Copyright 2002-2006, Nadim Khemir and Anders Lindgren.
-
-This is a free software with a very restrictive licence.
-See the license.txt file for the condition of use.
+Copyright 2002-2008, Nadim Khemir and Anders Lindgren.
 
 PBS comes with NO warranty. If you need a warranty, a completely
 unafordable licencing fee can be arranged.

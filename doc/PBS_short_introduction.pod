@@ -223,9 +223,7 @@ Parts of the development was funded by B<C-Technologies AB, Ideon Research Cente
 
 =head1 LICENSE 
 
-B<Pbs> is licenced as free software B<with added restrictions>. 
-
-Free software is a donation. This software is NOT donated to all people. Please check  B<licence.txt> in the distribution.
+Artistic License 2.0
 
 =cut
 

@@ -119,9 +119,9 @@ else
 
 sub ScanForPlugins
 {
-my ($config, $plugin_pathes) = @_ ;
+my ($config, $plugin_paths) = @_ ;
 
-for my $plugin_path (@$plugin_pathes)
+for my $plugin_path (@$plugin_paths)
 	{
 	PrintInfo "Plugin directory '$plugin_path':\n" if $config->{DISPLAY_PLUGIN_LOAD_INFO} ;
 	

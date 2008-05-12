@@ -60,7 +60,7 @@ sub CheckDependencyTree
 # generates a build sequence
 
 $checked_dependency_tree++ ;
-print "$checked_dependency_tree\r" ;
+PrintInfo "$checked_dependency_tree\r"  unless $checked_dependency_tree % 100 ;
 
 my $tree                     = shift ;
 my $inserted_nodes           = shift ; # this is to be considered read only

@@ -666,9 +666,6 @@ for my $name (keys %{$force_digest{$package}})
 		}
 	}
 
-# wap 6 info caching
-$node->{__HAS_DIGEST} = $generate_digest ;
-
 return($generate_digest) ;
 }
 
